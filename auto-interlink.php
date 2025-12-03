@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Auto Interlink
  * Plugin URI: https://github.com/Micolie/interlink-wordpress
- * Description: Automatically creates natural interlinks between relevant posts with contextual anchor text. Saves hours by automating the entire internal linking process.
- * Version: 1.0.0
+ * Description: Automatically creates natural interlinks between relevant posts using 3-5 word longtail phrases. Directly modifies post content to save hours of manual linking work.
+ * Version: 1.1.0
  * Author: Auto Interlink Team
  * Author URI: https://github.com/Micolie
  * License: GPL v2 or later
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('AUTO_INTERLINK_VERSION', '1.0.0');
+define('AUTO_INTERLINK_VERSION', '1.1.0');
 define('AUTO_INTERLINK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AUTO_INTERLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AUTO_INTERLINK_PLUGIN_FILE', __FILE__);
@@ -88,10 +88,10 @@ class Auto_Interlink {
         register_activation_hook(AUTO_INTERLINK_PLUGIN_FILE, array($this, 'activate'));
         register_deactivation_hook(AUTO_INTERLINK_PLUGIN_FILE, array($this, 'deactivate'));
 
-        // Content filter for automatic linking
-        add_filter('the_content', array($this->injector, 'inject_links'), 10);
+        // Process posts on save (direct database modification)
+        add_action('save_post', array($this->injector, 'process_post_on_save'), 20, 1);
 
-        // Clear cache when posts are updated
+        // Clear cache when posts are updated or deleted
         add_action('save_post', array($this->analyzer, 'clear_cache_for_post'), 10, 1);
         add_action('delete_post', array($this->analyzer, 'clear_all_cache'));
     }
@@ -104,8 +104,8 @@ class Auto_Interlink {
         $defaults = array(
             'enabled' => true,
             'max_links_per_post' => 5,
-            'min_keyword_length' => 3,
-            'max_keyword_length' => 50,
+            'min_keyword_length' => 10,
+            'max_keyword_length' => 100,
             'post_types' => array('post'),
             'link_to_newer_posts' => true,
             'link_to_older_posts' => true,

@@ -22,38 +22,43 @@ class Auto_Interlink_Injector {
     }
 
     /**
-     * Inject links into post content
+     * Process a post and add interlinks directly to database
      */
-    public function inject_links($content) {
+    public function process_post($post_id) {
         // Check if plugin is enabled
         if (!$this->settings->is_enabled()) {
-            return $content;
+            return false;
         }
 
-        // Check if we're in the main query and it's a single post
-        if (!is_singular() || !in_the_loop() || !is_main_query()) {
-            return $content;
+        // Get the post
+        $post = get_post($post_id);
+        if (!$post) {
+            return false;
         }
-
-        global $post;
 
         // Check if this post type is enabled
         $enabled_post_types = $this->settings->get('post_types', array('post'));
         if (!in_array($post->post_type, $enabled_post_types)) {
-            return $content;
+            return false;
         }
 
         // Check if this post is excluded
         $exclude_posts = $this->settings->get('exclude_posts', array());
         if (in_array($post->ID, $exclude_posts)) {
-            return $content;
+            return false;
         }
 
         // Check minimum post length
         $min_length = $this->settings->get('min_post_length', 100);
+        $content = $post->post_content;
         $content_length = str_word_count(wp_strip_all_tags($content));
         if ($content_length < $min_length) {
-            return $content;
+            return false;
+        }
+
+        // Check if content already has auto-interlinks (to avoid re-processing)
+        if (strpos($content, 'class="auto-interlink"') !== false) {
+            return false;
         }
 
         // Reset counter
@@ -64,13 +69,48 @@ class Auto_Interlink_Injector {
         $relevant_posts = $this->analyzer->get_relevant_posts($post->ID, $max_links);
 
         if (empty($relevant_posts)) {
-            return $content;
+            return false;
         }
 
         // Process content and add links
         $modified_content = $this->add_links_to_content($content, $relevant_posts, $post->ID);
 
-        return $modified_content;
+        // Only update if content was modified
+        if ($modified_content !== $content && $this->links_added > 0) {
+            // Unhook to prevent infinite loop
+            remove_action('save_post', array($this, 'process_post_on_save'));
+
+            // Update post content directly in database
+            wp_update_post(array(
+                'ID' => $post_id,
+                'post_content' => $modified_content
+            ));
+
+            // Re-hook
+            add_action('save_post', array($this, 'process_post_on_save'), 10, 1);
+
+            return $this->links_added;
+        }
+
+        return false;
+    }
+
+    /**
+     * Process post on save
+     */
+    public function process_post_on_save($post_id) {
+        // Check if this is an autosave
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+
+        // Check user permissions
+        if (!current_user_can('edit_post', $post_id)) {
+            return;
+        }
+
+        // Process the post
+        $this->process_post($post_id);
     }
 
     /**
@@ -80,91 +120,88 @@ class Auto_Interlink_Injector {
         $max_links = $this->settings->get('max_links_per_post', 5);
         $case_sensitive = $this->settings->get('case_sensitive', false);
 
-        // Split content into paragraphs to work with
-        $paragraphs = $this->split_into_paragraphs($content);
-        $modified_paragraphs = array();
+        // Work directly with the content instead of splitting it
+        $modified_content = $content;
 
-        foreach ($paragraphs as $paragraph) {
-            // Skip if paragraph is too short or is HTML tag
-            if (strlen(wp_strip_all_tags($paragraph)) < 20 || $this->is_html_tag($paragraph)) {
-                $modified_paragraphs[] = $paragraph;
-                continue;
+        // Try to add links from relevant posts
+        foreach ($relevant_posts as $relevant_data) {
+            if ($this->links_added >= $max_links) {
+                break;
             }
 
-            $modified_paragraph = $paragraph;
+            $target_post = $relevant_data['post'];
+            $phrases = array_keys($relevant_data['keywords']);
 
-            // Try to add links from relevant posts
-            foreach ($relevant_posts as $relevant_data) {
+            // Sort phrases by length (longest first for better matching)
+            usort($phrases, function($a, $b) {
+                return mb_strlen($b) - mb_strlen($a);
+            });
+
+            // Try each phrase for this post
+            foreach ($phrases as $phrase) {
                 if ($this->links_added >= $max_links) {
-                    break 2; // Exit both loops
+                    break 2;
                 }
 
-                $target_post = $relevant_data['post'];
-                $keywords = array_keys($relevant_data['keywords']);
+                // Only process phrases with 3-5 words
+                $word_count = str_word_count($phrase);
+                if ($word_count < 3 || $word_count > 5) {
+                    continue;
+                }
 
-                // Try each keyword for this post
-                foreach ($keywords as $keyword) {
-                    if ($this->links_added >= $max_links) {
-                        break 2;
-                    }
+                // Check if phrase exists in content and isn't already linked
+                if ($this->phrase_exists_and_not_linked($modified_content, $phrase, $case_sensitive)) {
+                    // Create the link
+                    $link = $this->create_link($target_post, $phrase);
 
-                    // Check if keyword exists in paragraph and isn't already linked
-                    if ($this->keyword_exists_and_not_linked($modified_paragraph, $keyword, $case_sensitive)) {
-                        // Create the link
-                        $link = $this->create_link($target_post, $keyword);
+                    // Replace first occurrence of phrase with link
+                    $modified_content = $this->replace_phrase_with_link(
+                        $modified_content,
+                        $phrase,
+                        $link,
+                        $case_sensitive
+                    );
 
-                        // Replace first occurrence of keyword with link
-                        $modified_paragraph = $this->replace_keyword_with_link(
-                            $modified_paragraph,
-                            $keyword,
-                            $link,
-                            $case_sensitive
-                        );
-
+                    if ($modified_content !== false) {
                         $this->links_added++;
                         break; // Move to next relevant post
                     }
                 }
             }
-
-            $modified_paragraphs[] = $modified_paragraph;
         }
 
-        return implode('', $modified_paragraphs);
+        return $modified_content;
     }
 
     /**
-     * Split content into paragraphs while preserving HTML
+     * Check if phrase exists in text and is not already linked
      */
-    private function split_into_paragraphs($content) {
-        // Split by paragraph tags and double line breaks
-        $paragraphs = preg_split('/(<p[^>]*>.*?<\/p>|<div[^>]*>.*?<\/div>|<h[1-6][^>]*>.*?<\/h[1-6]>)/s', $content, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+    private function phrase_exists_and_not_linked($text, $phrase, $case_sensitive = false) {
+        // Create a temporary version with links removed for searching
+        $temp_text = preg_replace('/<a\s+[^>]*>.*?<\/a>/is', '[LINK]', $text);
 
-        return $paragraphs;
-    }
+        // Remove all HTML tags for clean searching
+        $search_text = wp_strip_all_tags($temp_text);
 
-    /**
-     * Check if string is an HTML tag
-     */
-    private function is_html_tag($string) {
-        return preg_match('/^<[^>]+>$/', trim($string));
-    }
-
-    /**
-     * Check if keyword exists in text and is not already linked
-     */
-    private function keyword_exists_and_not_linked($text, $keyword, $case_sensitive = false) {
-        // Remove existing links to get clean text
-        $clean_text = preg_replace('/<a\s+[^>]*>.*?<\/a>/i', '', $text);
-
-        // Remove HTML tags for searching
-        $search_text = wp_strip_all_tags($clean_text);
-
+        // Check if phrase exists in clean text (not within removed links)
         if ($case_sensitive) {
-            return strpos($search_text, $keyword) !== false;
+            $found = strpos($search_text, $phrase) !== false;
         } else {
-            return stripos($search_text, $keyword) !== false;
+            $found = stripos($search_text, $phrase) !== false;
         }
+
+        // Make sure it's not within a [LINK] placeholder
+        if ($found && strpos($search_text, '[LINK]') !== false) {
+            // Double-check the phrase isn't where we removed a link
+            $pattern = $case_sensitive
+                ? '/\b' . preg_quote($phrase, '/') . '\b/'
+                : '/\b' . preg_quote($phrase, '/') . '\b/i';
+
+            // Check in original text structure
+            return preg_match($pattern, $search_text) && !preg_match('/\[LINK\]/', $search_text);
+        }
+
+        return $found;
     }
 
     /**
@@ -184,19 +221,54 @@ class Auto_Interlink_Injector {
     }
 
     /**
-     * Replace first occurrence of keyword with link
+     * Replace first occurrence of phrase with link
      */
-    private function replace_keyword_with_link($content, $keyword, $link, $case_sensitive = false) {
-        // Pattern to match keyword outside of HTML tags and existing links
-        // This is a simplified approach - matches keyword not inside tags
+    private function replace_phrase_with_link($content, $phrase, $link, $case_sensitive = false) {
+        // Use a more sophisticated approach to avoid replacing text inside HTML tags or existing links
+
+        // First, protect existing links and HTML tags
+        $protected_content = $content;
+        $placeholders = array();
+        $placeholder_index = 0;
+
+        // Protect existing links
+        $protected_content = preg_replace_callback(
+            '/<a\s+[^>]*>.*?<\/a>/is',
+            function($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '___PROTECTED_LINK_' . $placeholder_index . '___';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            },
+            $protected_content
+        );
+
+        // Protect HTML tags (but not their content)
+        $protected_content = preg_replace_callback(
+            '/<[^>]+>/',
+            function($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '___PROTECTED_TAG_' . $placeholder_index . '___';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            },
+            $protected_content
+        );
+
+        // Now replace the phrase
         $pattern = $case_sensitive
-            ? '/\b(' . preg_quote($keyword, '/') . ')\b(?![^<]*<\/a>)(?![^<]*>)/u'
-            : '/\b(' . preg_quote($keyword, '/') . ')\b(?![^<]*<\/a>)(?![^<]*>)/iu';
+            ? '/\b(' . preg_quote($phrase, '/') . ')\b/u'
+            : '/\b(' . preg_quote($phrase, '/') . ')\b/iu';
 
-        // Replace only the first occurrence
-        $replaced = preg_replace($pattern, $link, $content, 1);
+        // Replace only first occurrence
+        $replaced_content = preg_replace($pattern, $link, $protected_content, 1);
 
-        return $replaced ? $replaced : $content;
+        // Restore protected content
+        foreach ($placeholders as $placeholder => $original) {
+            $replaced_content = str_replace($placeholder, $original, $replaced_content);
+        }
+
+        return $replaced_content !== null ? $replaced_content : $content;
     }
 
     /**
