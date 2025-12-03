@@ -1,13 +1,13 @@
 # Auto Interlink - WordPress Plugin
 
-**Automatically create natural interlinks between relevant WordPress posts using SEO-friendly longtail anchor text.**
+**Automatically create natural interlinks between relevant WordPress posts using SEO-friendly anchor text.**
 
-This plugin analyzes your WordPress posts, identifies the most relevant connections, and automatically creates hyperlinks using 3-5 word longtail phrases. It saves tons of hours by automating the entire internal linking process, improving SEO and user navigation.
+This plugin analyzes your WordPress posts, identifies the most relevant connections, and automatically creates hyperlinks using 1-3 word phrases. It saves tons of hours by automating the entire internal linking process, improving SEO and user navigation.
 
 ## Features
 
 - 🎯 **Smart Relevance Detection**: Analyzes post content, categories, and tags to find the most relevant connections
-- 🔗 **Longtail Anchor Text**: Uses 3-5 word phrases for better SEO value (no single-word links)
+- 🔗 **Natural Anchor Text**: Uses 1-3 word phrases for optimal SEO value
 - 💾 **Direct Database Modification**: Links are permanently added to your post content for optimal SEO
 - 🔄 **Automatic Processing**: Links are added automatically when you save or update posts
 - 📦 **Bulk Processing**: Process all existing posts at once with one click
@@ -17,9 +17,9 @@ This plugin analyzes your WordPress posts, identifies the most relevant connecti
 
 ## How It Works
 
-1. **Analyzes Content**: The plugin extracts relevant 3-5 word longtail phrases from your posts
+1. **Analyzes Content**: The plugin extracts relevant 1-3 word phrases from your posts
 2. **Finds Connections**: Identifies which posts are most relevant based on phrase overlap, categories, and tags
-3. **Adds Links Automatically**: When you save a post, it permanently inserts links to related posts using natural longtail anchor text
+3. **Adds Links Automatically**: When you save a post, it permanently inserts links to related posts using natural anchor text
 4. **Direct Modification**: Links are permanently added to your post content in the database for better SEO
 
 ## Installation
@@ -83,15 +83,17 @@ Process all existing posts at once to add interlinks. This feature allows you to
 
 **Important**: This directly modifies your post content in the database. Always backup your database before bulk processing.
 
+**Note**: The plugin uses 1-3 word phrases from your content as anchor text for natural interlinking.
+
 ## Usage Examples
 
 ### Example 1: Blog with Related Articles
 
 If you have a blog post about "WordPress SEO Best Practices" and another about "Improving Website Performance", the plugin will:
 
-1. Extract longtail phrases like "wordpress seo best", "website performance optimization", "improve page speed"
+1. Extract phrases like "wordpress seo", "seo best practices", "website performance", "performance optimization"
 2. Calculate relevance based on phrase overlap and taxonomy
-3. Automatically add links using natural 3-5 word anchors like "wordpress seo best practices" or "website performance optimization"
+3. Automatically add links using natural 1-3 word anchors from matching content
 
 ### Example 2: Documentation Site
 
@@ -178,7 +180,8 @@ Yes, you can select specific post types in the settings (posts, pages, custom po
 3. Ensure the post type is enabled in settings
 4. Save or update the post to trigger link processing
 5. Use the "Process All Posts" button to process existing posts
-6. Check that your content has suitable 3-5 word phrases for linking
+6. Check that your content has suitable 1-3 word phrases for linking
+7. Ensure matching phrases exist in both the source and target posts
 
 ### Too many/few links
 
@@ -208,12 +211,13 @@ For issues, questions, or contributions:
 
 ### Version 1.1.0 (Latest)
 - **BREAKING CHANGE**: Switched from filter-based to direct database modification for better SEO
-- **NEW**: Longtail anchor text (3-5 word phrases only) for improved SEO value
+- **NEW**: Smart anchor text using 1-3 word phrases for natural interlinking
 - **NEW**: Bulk processing feature to process all existing posts at once
 - **FIX**: Resolved text truncation bug that was causing content loss
-- **IMPROVED**: Better phrase extraction algorithm for more natural anchor text
-- **IMPROVED**: Updated default phrase length settings (10-100 characters)
+- **IMPROVED**: Better phrase extraction algorithm with weighted scoring (longer phrases prioritized)
+- **IMPROVED**: Updated default phrase length settings (3-100 characters)
 - **IMPROVED**: More robust content modification that preserves all HTML and formatting
+- **IMPROVED**: Single words, two-word, and three-word phrases all supported
 
 ### Version 1.0.0
 - Initial release

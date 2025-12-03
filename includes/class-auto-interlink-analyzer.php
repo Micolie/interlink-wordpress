@@ -72,7 +72,7 @@ class Auto_Interlink_Analyzer {
     }
 
     /**
-     * Extract longtail phrases (3-5 words) from content
+     * Extract phrases (1-3 words) from content
      */
     public function extract_keywords($content, $title = '') {
         // Combine title and content
@@ -104,7 +104,7 @@ class Auto_Interlink_Analyzer {
             preg_match_all('/\b[\w\-]+\b/u', $sentence, $matches);
             $words = $matches[0];
 
-            // Filter out stop words
+            // Filter out stop words for multi-word phrases
             $filtered_words = array();
             foreach ($words as $word) {
                 if (!in_array($word, $stop_words) && mb_strlen($word) >= 2) {
@@ -112,10 +112,13 @@ class Auto_Interlink_Analyzer {
                 }
             }
 
-            // Extract 3-word, 4-word, and 5-word phrases
-            for ($phrase_length = 3; $phrase_length <= 5; $phrase_length++) {
-                for ($i = 0; $i <= count($filtered_words) - $phrase_length; $i++) {
-                    $phrase = implode(' ', array_slice($filtered_words, $i, $phrase_length));
+            // Extract 1-word, 2-word, and 3-word phrases
+            for ($phrase_length = 1; $phrase_length <= 3; $phrase_length++) {
+                // Use filtered words for all phrase lengths
+                $words_to_use = $filtered_words;
+
+                for ($i = 0; $i <= count($words_to_use) - $phrase_length; $i++) {
+                    $phrase = implode(' ', array_slice($words_to_use, $i, $phrase_length));
                     $phrase_char_length = mb_strlen($phrase);
 
                     // Check phrase length constraints
@@ -123,7 +126,8 @@ class Auto_Interlink_Analyzer {
                         if (!isset($phrases[$phrase])) {
                             $phrases[$phrase] = 0;
                         }
-                        $phrases[$phrase]++;
+                        // Give higher weight to longer phrases
+                        $phrases[$phrase] += $phrase_length;
                     }
                 }
             }
@@ -148,25 +152,25 @@ class Auto_Interlink_Analyzer {
                 }
             }
 
-            // Extract 3-5 word phrases from title
-            for ($phrase_length = 3; $phrase_length <= 5; $phrase_length++) {
+            // Extract 1-3 word phrases from title
+            for ($phrase_length = 1; $phrase_length <= 3; $phrase_length++) {
                 for ($i = 0; $i <= count($filtered_title_words) - $phrase_length; $i++) {
                     $phrase = implode(' ', array_slice($filtered_title_words, $i, $phrase_length));
                     $phrase_char_length = mb_strlen($phrase);
 
                     if ($phrase_char_length >= $min_length && $phrase_char_length <= $max_length) {
-                        // Title phrases get 5x weight
-                        $phrases[$phrase] = (isset($phrases[$phrase]) ? $phrases[$phrase] : 0) + 5;
+                        // Title phrases get higher weight based on length
+                        $phrases[$phrase] = (isset($phrases[$phrase]) ? $phrases[$phrase] : 0) + (5 * $phrase_length);
                     }
                 }
             }
 
-            // If title itself is 3-5 words, add it with extra weight
+            // If title itself is 1-3 words, add it with extra weight
             $title_word_count = count($filtered_title_words);
-            if ($title_word_count >= 3 && $title_word_count <= 5) {
+            if ($title_word_count >= 1 && $title_word_count <= 3) {
                 $title_phrase = implode(' ', $filtered_title_words);
                 if (mb_strlen($title_phrase) >= $min_length && mb_strlen($title_phrase) <= $max_length) {
-                    $phrases[$title_phrase] = (isset($phrases[$title_phrase]) ? $phrases[$title_phrase] : 0) + 10;
+                    $phrases[$title_phrase] = (isset($phrases[$title_phrase]) ? $phrases[$title_phrase] : 0) + 20;
                 }
             }
         }

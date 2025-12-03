@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Auto Interlink
  * Plugin URI: https://github.com/Micolie/interlink-wordpress
- * Description: Automatically creates natural interlinks between relevant posts using 3-5 word longtail phrases. Directly modifies post content to save hours of manual linking work.
+ * Description: Automatically creates natural interlinks between relevant posts using 1-3 word phrases. Directly modifies post content to save hours of manual linking work.
  * Version: 1.1.0
  * Author: Auto Interlink Team
  * Author URI: https://github.com/Micolie

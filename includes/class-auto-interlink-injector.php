@@ -143,9 +143,9 @@ class Auto_Interlink_Injector {
                     break 2;
                 }
 
-                // Only process phrases with 3-5 words
+                // Only process phrases with 1-3 words
                 $word_count = str_word_count($phrase);
-                if ($word_count < 3 || $word_count > 5) {
+                if ($word_count < 1 || $word_count > 3) {
                     continue;
                 }
 
