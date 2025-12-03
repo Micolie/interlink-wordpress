@@ -72,7 +72,7 @@ class Auto_Interlink_Analyzer {
     }
 
     /**
-     * Extract keywords from content
+     * Extract longtail phrases (3-5 words) from content
      */
     public function extract_keywords($content, $title = '') {
         // Combine title and content
@@ -89,56 +89,92 @@ class Auto_Interlink_Analyzer {
             $text = strtolower($text);
         }
 
-        // Get word boundaries
+        // Get settings
         $min_length = $this->settings->get('min_keyword_length', 3);
-        $max_length = $this->settings->get('max_keyword_length', 50);
+        $max_length = $this->settings->get('max_keyword_length', 100);
 
-        // Extract words
-        preg_match_all('/\b[\w\-]+\b/u', $text, $matches);
-        $words = $matches[0];
+        // Split into sentences
+        $sentences = preg_split('/[.!?]+/', $text, -1, PREG_SPLIT_NO_EMPTY);
 
-        // Filter by length and remove common stop words
+        $phrases = array();
         $stop_words = $this->get_stop_words();
-        $keywords = array();
 
-        foreach ($words as $word) {
-            $word_length = mb_strlen($word);
-            if ($word_length >= $min_length && $word_length <= $max_length && !in_array($word, $stop_words)) {
-                if (!isset($keywords[$word])) {
-                    $keywords[$word] = 0;
+        foreach ($sentences as $sentence) {
+            // Extract words from sentence
+            preg_match_all('/\b[\w\-]+\b/u', $sentence, $matches);
+            $words = $matches[0];
+
+            // Filter out stop words
+            $filtered_words = array();
+            foreach ($words as $word) {
+                if (!in_array($word, $stop_words) && mb_strlen($word) >= 2) {
+                    $filtered_words[] = $word;
                 }
-                $keywords[$word]++;
+            }
+
+            // Extract 3-word, 4-word, and 5-word phrases
+            for ($phrase_length = 3; $phrase_length <= 5; $phrase_length++) {
+                for ($i = 0; $i <= count($filtered_words) - $phrase_length; $i++) {
+                    $phrase = implode(' ', array_slice($filtered_words, $i, $phrase_length));
+                    $phrase_char_length = mb_strlen($phrase);
+
+                    // Check phrase length constraints
+                    if ($phrase_char_length >= $min_length && $phrase_char_length <= $max_length) {
+                        if (!isset($phrases[$phrase])) {
+                            $phrases[$phrase] = 0;
+                        }
+                        $phrases[$phrase]++;
+                    }
+                }
             }
         }
 
-        // Sort by frequency
-        arsort($keywords);
-
-        // Also extract 2-3 word phrases from title
+        // Extract phrases from title with higher weight
         if ($title) {
             $title_clean = wp_strip_all_tags($title);
             if (!$this->settings->get('case_sensitive', false)) {
                 $title_clean = strtolower($title_clean);
             }
 
-            // Add title as a high-value keyword
-            if (mb_strlen($title_clean) >= $min_length && mb_strlen($title_clean) <= $max_length) {
-                $keywords[$title_clean] = (isset($keywords[$title_clean]) ? $keywords[$title_clean] : 0) + 10;
+            // Extract words from title
+            preg_match_all('/\b[\w\-]+\b/u', $title_clean, $matches);
+            $title_words = $matches[0];
+
+            // Filter title words
+            $filtered_title_words = array();
+            foreach ($title_words as $word) {
+                if (!in_array($word, $stop_words) && mb_strlen($word) >= 2) {
+                    $filtered_title_words[] = $word;
+                }
             }
 
-            // Extract 2-word phrases from title
-            $title_words = preg_split('/\s+/', $title_clean);
-            if (count($title_words) >= 2) {
-                for ($i = 0; $i < count($title_words) - 1; $i++) {
-                    $phrase = $title_words[$i] . ' ' . $title_words[$i + 1];
-                    if (mb_strlen($phrase) >= $min_length && mb_strlen($phrase) <= $max_length) {
-                        $keywords[$phrase] = (isset($keywords[$phrase]) ? $keywords[$phrase] : 0) + 5;
+            // Extract 3-5 word phrases from title
+            for ($phrase_length = 3; $phrase_length <= 5; $phrase_length++) {
+                for ($i = 0; $i <= count($filtered_title_words) - $phrase_length; $i++) {
+                    $phrase = implode(' ', array_slice($filtered_title_words, $i, $phrase_length));
+                    $phrase_char_length = mb_strlen($phrase);
+
+                    if ($phrase_char_length >= $min_length && $phrase_char_length <= $max_length) {
+                        // Title phrases get 5x weight
+                        $phrases[$phrase] = (isset($phrases[$phrase]) ? $phrases[$phrase] : 0) + 5;
                     }
+                }
+            }
+
+            // If title itself is 3-5 words, add it with extra weight
+            $title_word_count = count($filtered_title_words);
+            if ($title_word_count >= 3 && $title_word_count <= 5) {
+                $title_phrase = implode(' ', $filtered_title_words);
+                if (mb_strlen($title_phrase) >= $min_length && mb_strlen($title_phrase) <= $max_length) {
+                    $phrases[$title_phrase] = (isset($phrases[$title_phrase]) ? $phrases[$title_phrase] : 0) + 10;
                 }
             }
         }
 
-        return $keywords;
+        // Sort by frequency (highest first)
+        arsort($phrases);
+
+        return $phrases;
     }
 
     /**

@@ -118,6 +118,11 @@ class Auto_Interlink_Admin {
             echo '<div class="notice notice-success"><p>' . __('Cache cleared successfully!', 'auto-interlink') . '</p></div>';
         }
 
+        // Handle bulk processing
+        if (isset($_POST['process_all_posts']) && check_admin_referer('auto_interlink_process_all')) {
+            $this->process_all_posts();
+        }
+
         $settings = $this->settings->get_all();
         ?>
         <div class="wrap">
@@ -271,16 +276,72 @@ class Auto_Interlink_Admin {
 
             <hr>
 
+            <h2><?php _e('Bulk Processing', 'auto-interlink'); ?></h2>
+            <p><?php _e('Process all existing posts to add interlinks. This will scan all published posts and add relevant interlinks using 3-5 word longtail phrases.', 'auto-interlink'); ?></p>
+            <p><strong><?php _e('Warning:', 'auto-interlink'); ?></strong> <?php _e('This will directly modify your post content in the database. Make sure to backup your database before running this operation.', 'auto-interlink'); ?></p>
+
+            <form method="post">
+                <?php wp_nonce_field('auto_interlink_process_all'); ?>
+                <input type="hidden" name="process_all_posts" value="1">
+                <?php submit_button(__('Process All Posts', 'auto-interlink'), 'primary', 'submit', false); ?>
+            </form>
+
+            <hr>
+
             <h2><?php _e('How It Works', 'auto-interlink'); ?></h2>
             <ol>
-                <li><?php _e('The plugin analyzes your posts to extract relevant keywords and phrases.', 'auto-interlink'); ?></li>
-                <li><?php _e('It identifies which posts are most relevant to each other based on keyword overlap, categories, and tags.', 'auto-interlink'); ?></li>
-                <li><?php _e('When a post is displayed, it automatically inserts links to related posts using natural anchor text.', 'auto-interlink'); ?></li>
-                <li><?php _e('Links are added on-the-fly and do not modify your actual post content in the database.', 'auto-interlink'); ?></li>
+                <li><?php _e('The plugin analyzes your posts to extract relevant 3-5 word longtail phrases.', 'auto-interlink'); ?></li>
+                <li><?php _e('It identifies which posts are most relevant to each other based on phrase overlap, categories, and tags.', 'auto-interlink'); ?></li>
+                <li><?php _e('When you save a post, it automatically inserts links to related posts using natural longtail anchor text.', 'auto-interlink'); ?></li>
+                <li><?php _e('Links are permanently added to your post content in the database for better SEO.', 'auto-interlink'); ?></li>
             </ol>
 
             <p><strong><?php _e('Need help?', 'auto-interlink'); ?></strong> <?php _e('Visit the', 'auto-interlink'); ?> <a href="https://github.com/Micolie/interlink-wordpress" target="_blank"><?php _e('plugin repository', 'auto-interlink'); ?></a> <?php _e('for documentation and support.', 'auto-interlink'); ?></p>
         </div>
         <?php
+    }
+
+    /**
+     * Process all posts for interlinking
+     */
+    private function process_all_posts() {
+        set_time_limit(0); // Prevent timeout
+
+        $post_types = $this->settings->get('post_types', array('post'));
+        $exclude_posts = $this->settings->get('exclude_posts', array());
+
+        $args = array(
+            'post_type' => $post_types,
+            'post_status' => 'publish',
+            'posts_per_page' => -1,
+            'post__not_in' => $exclude_posts,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        );
+
+        $query = new WP_Query($args);
+        $total_posts = $query->post_count;
+        $processed = 0;
+        $links_added = 0;
+
+        $analyzer = new Auto_Interlink_Analyzer($this->settings);
+        $injector = new Auto_Interlink_Injector($this->settings, $analyzer);
+
+        foreach ($query->posts as $post) {
+            $result = $injector->process_post($post->ID);
+            if ($result !== false) {
+                $processed++;
+                $links_added += $result;
+            }
+        }
+
+        echo '<div class="notice notice-success"><p>';
+        printf(
+            __('Bulk processing complete! Processed %d out of %d posts and added %d interlinks.', 'auto-interlink'),
+            $processed,
+            $total_posts,
+            $links_added
+        );
+        echo '</p></div>';
     }
 }

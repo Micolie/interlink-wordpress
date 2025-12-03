@@ -1,24 +1,26 @@
 # Auto Interlink - WordPress Plugin
 
-**Automatically create natural interlinks between relevant WordPress posts with contextual anchor text.**
+**Automatically create natural interlinks between relevant WordPress posts using SEO-friendly longtail anchor text.**
 
-This plugin analyzes your WordPress posts, identifies the most relevant connections, and automatically creates hyperlinks between them. It saves tons of hours by automating the entire internal linking process, improving SEO and user navigation.
+This plugin analyzes your WordPress posts, identifies the most relevant connections, and automatically creates hyperlinks using 3-5 word longtail phrases. It saves tons of hours by automating the entire internal linking process, improving SEO and user navigation.
 
 ## Features
 
 - 🎯 **Smart Relevance Detection**: Analyzes post content, categories, and tags to find the most relevant connections
-- 🔗 **Natural Anchor Text**: Uses contextual keywords from your content as anchor text
-- ⚡ **Non-Destructive**: Links are added on-the-fly using WordPress filters; your actual post content remains unchanged
+- 🔗 **Longtail Anchor Text**: Uses 3-5 word phrases for better SEO value (no single-word links)
+- 💾 **Direct Database Modification**: Links are permanently added to your post content for optimal SEO
+- 🔄 **Automatic Processing**: Links are added automatically when you save or update posts
+- 📦 **Bulk Processing**: Process all existing posts at once with one click
 - 🎛️ **Fully Customizable**: Control link density, post types, exclusions, and more
 - 🚀 **Performance Optimized**: Built-in caching system to ensure fast page loads
 - 🎨 **Easy Configuration**: Simple admin interface with all settings in one place
 
 ## How It Works
 
-1. **Analyzes Content**: The plugin extracts relevant keywords and phrases from your posts
-2. **Finds Connections**: Identifies which posts are most relevant based on keyword overlap, categories, and tags
-3. **Adds Links Automatically**: When a post is displayed, it inserts links to related posts using natural anchor text
-4. **Non-Invasive**: Links are added via WordPress filters and don't modify your database content
+1. **Analyzes Content**: The plugin extracts relevant 3-5 word longtail phrases from your posts
+2. **Finds Connections**: Identifies which posts are most relevant based on phrase overlap, categories, and tags
+3. **Adds Links Automatically**: When you save a post, it permanently inserts links to related posts using natural longtail anchor text
+4. **Direct Modification**: Links are permanently added to your post content in the database for better SEO
 
 ## Installation
 
@@ -46,8 +48,8 @@ Navigate to **Settings → Auto Interlink** in your WordPress admin to configure
 
 - **Enable Auto Interlinking**: Toggle the plugin on/off
 - **Maximum Links Per Post**: Control how many automatic links to add (default: 5)
-- **Minimum Keyword Length**: Minimum characters for keywords (default: 3)
-- **Maximum Keyword Length**: Maximum characters to prevent matching long sentences (default: 50)
+- **Minimum Phrase Length**: Minimum characters for longtail phrases (default: 10)
+- **Maximum Phrase Length**: Maximum characters for longtail phrases (default: 100)
 - **Minimum Post Length**: Only add links to posts with this many words (default: 100)
 
 ### Post Types
@@ -72,15 +74,24 @@ Select which post types should have automatic interlinking:
 
 Enter post IDs (comma-separated) to exclude specific posts from the interlinking system.
 
+### Bulk Processing
+
+Process all existing posts at once to add interlinks. This feature allows you to:
+- Add interlinks to all your existing posts with one click
+- Re-process posts after changing settings
+- Useful for initial setup or after importing content
+
+**Important**: This directly modifies your post content in the database. Always backup your database before bulk processing.
+
 ## Usage Examples
 
 ### Example 1: Blog with Related Articles
 
-If you have a blog post about "WordPress SEO Tips" and another about "Improving Website Performance", the plugin will:
+If you have a blog post about "WordPress SEO Best Practices" and another about "Improving Website Performance", the plugin will:
 
-1. Identify common keywords like "wordpress", "website", "optimization"
-2. Calculate relevance based on keyword overlap and taxonomy
-3. Automatically add links like: "For more tips, check out our guide on website performance optimization"
+1. Extract longtail phrases like "wordpress seo best", "website performance optimization", "improve page speed"
+2. Calculate relevance based on phrase overlap and taxonomy
+3. Automatically add links using natural 3-5 word anchors like "wordpress seo best practices" or "website performance optimization"
 
 ### Example 2: Documentation Site
 
@@ -95,9 +106,10 @@ For a documentation site with interconnected topics:
 The plugin is optimized for performance:
 
 - **Caching**: Relevance calculations are cached for 1 hour
-- **On-Demand Processing**: Links are only generated when a post is displayed
+- **Processing on Save**: Links are only generated when you save/update a post
 - **Efficient Queries**: Optimized database queries to minimize overhead
 - **Cache Management**: Clear cache from settings page or when posts are updated
+- **No Runtime Overhead**: Since links are permanently added to content, there's no processing overhead when displaying posts
 
 ## Customization
 
@@ -139,7 +151,7 @@ Links added by the plugin have the class `auto-interlink`, allowing you to style
 
 ### Does this modify my post content in the database?
 
-No! The plugin uses WordPress filters to add links on-the-fly when posts are displayed. Your actual post content remains unchanged.
+Yes. Starting from version 1.1.0, the plugin permanently adds links to your post content in the database. This provides better SEO value and eliminates runtime overhead. Always backup your database before using the plugin.
 
 ### Can I exclude specific posts?
 
@@ -151,7 +163,7 @@ The cache expires after 1 hour. It's also automatically cleared when you update 
 
 ### Will this slow down my site?
 
-No. The plugin uses efficient caching to ensure minimal performance impact. Links are generated using cached relevance data.
+No. Links are permanently added to your content when you save posts, so there's zero runtime overhead when displaying posts. The plugin only processes content when you save or update a post.
 
 ### Can I control which post types are interlinked?
 
@@ -162,9 +174,11 @@ Yes, you can select specific post types in the settings (posts, pages, custom po
 ### Links aren't appearing
 
 1. Check that the plugin is enabled in Settings → Auto Interlink
-2. Verify your post meets the minimum word count
+2. Verify your post meets the minimum word count (default: 100 words)
 3. Ensure the post type is enabled in settings
-4. Try clearing the cache
+4. Save or update the post to trigger link processing
+5. Use the "Process All Posts" button to process existing posts
+6. Check that your content has suitable 3-5 word phrases for linking
 
 ### Too many/few links
 
@@ -191,6 +205,15 @@ For issues, questions, or contributions:
 - Repository: https://github.com/Micolie/interlink-wordpress
 
 ## Changelog
+
+### Version 1.1.0 (Latest)
+- **BREAKING CHANGE**: Switched from filter-based to direct database modification for better SEO
+- **NEW**: Longtail anchor text (3-5 word phrases only) for improved SEO value
+- **NEW**: Bulk processing feature to process all existing posts at once
+- **FIX**: Resolved text truncation bug that was causing content loss
+- **IMPROVED**: Better phrase extraction algorithm for more natural anchor text
+- **IMPROVED**: Updated default phrase length settings (10-100 characters)
+- **IMPROVED**: More robust content modification that preserves all HTML and formatting
 
 ### Version 1.0.0
 - Initial release
