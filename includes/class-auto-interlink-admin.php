@@ -277,7 +277,7 @@ class Auto_Interlink_Admin {
             <hr>
 
             <h2><?php _e('Bulk Processing', 'auto-interlink'); ?></h2>
-            <p><?php _e('Process all existing posts to add interlinks. This will scan all published posts and add relevant interlinks using 3-5 word longtail phrases.', 'auto-interlink'); ?></p>
+            <p><?php _e('Process all existing posts to add interlinks. This will scan all published posts and add relevant interlinks using 1-3 word phrases.', 'auto-interlink'); ?></p>
             <p><strong><?php _e('Warning:', 'auto-interlink'); ?></strong> <?php _e('This will directly modify your post content in the database. Make sure to backup your database before running this operation.', 'auto-interlink'); ?></p>
 
             <form method="post">
@@ -290,9 +290,9 @@ class Auto_Interlink_Admin {
 
             <h2><?php _e('How It Works', 'auto-interlink'); ?></h2>
             <ol>
-                <li><?php _e('The plugin analyzes your posts to extract relevant 3-5 word longtail phrases.', 'auto-interlink'); ?></li>
+                <li><?php _e('The plugin analyzes your posts to extract relevant 1-3 word phrases.', 'auto-interlink'); ?></li>
                 <li><?php _e('It identifies which posts are most relevant to each other based on phrase overlap, categories, and tags.', 'auto-interlink'); ?></li>
-                <li><?php _e('When you save a post, it automatically inserts links to related posts using natural longtail anchor text.', 'auto-interlink'); ?></li>
+                <li><?php _e('When you save a post, it automatically inserts links to related posts using natural anchor text.', 'auto-interlink'); ?></li>
                 <li><?php _e('Links are permanently added to your post content in the database for better SEO.', 'auto-interlink'); ?></li>
             </ol>
 
