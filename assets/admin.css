@@ -1,0 +1,41 @@
+/**
+ * Auto Interlink - Admin Styles
+ */
+
+.auto-interlink-settings {
+    max-width: 800px;
+}
+
+.auto-interlink-settings .form-table th {
+    width: 220px;
+    padding: 20px 10px 20px 0;
+}
+
+.auto-interlink-settings .form-table td {
+    padding: 15px 10px;
+}
+
+.auto-interlink-settings input[type="number"].small-text {
+    width: 80px;
+}
+
+.auto-interlink-settings .description {
+    margin-top: 5px;
+    font-style: italic;
+    color: #646970;
+}
+
+.auto-interlink-settings hr {
+    margin: 30px 0;
+    border: 0;
+    border-top: 1px solid #dcdcde;
+}
+
+.auto-interlink-settings ol {
+    margin-left: 20px;
+}
+
+.auto-interlink-settings ol li {
+    margin-bottom: 10px;
+    line-height: 1.6;
+}
