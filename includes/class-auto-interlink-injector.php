@@ -177,31 +177,18 @@ class Auto_Interlink_Injector {
      * Check if phrase exists in text and is not already linked
      */
     private function phrase_exists_and_not_linked($text, $phrase, $case_sensitive = false) {
-        // Create a temporary version with links removed for searching
-        $temp_text = preg_replace('/<a\s+[^>]*>.*?<\/a>/is', '[LINK]', $text);
+        // Remove all existing links completely (so linked text won't be found)
+        $temp_text = preg_replace('/<a\s+[^>]*>.*?<\/a>/is', ' ', $text);
 
         // Remove all HTML tags for clean searching
         $search_text = wp_strip_all_tags($temp_text);
 
-        // Check if phrase exists in clean text (not within removed links)
-        if ($case_sensitive) {
-            $found = strpos($search_text, $phrase) !== false;
-        } else {
-            $found = stripos($search_text, $phrase) !== false;
-        }
+        // Use word boundary regex to check if phrase exists in unlinked text
+        $pattern = $case_sensitive
+            ? '/\b' . preg_quote($phrase, '/') . '\b/u'
+            : '/\b' . preg_quote($phrase, '/') . '\b/iu';
 
-        // Make sure it's not within a [LINK] placeholder
-        if ($found && strpos($search_text, '[LINK]') !== false) {
-            // Double-check the phrase isn't where we removed a link
-            $pattern = $case_sensitive
-                ? '/\b' . preg_quote($phrase, '/') . '\b/'
-                : '/\b' . preg_quote($phrase, '/') . '\b/i';
-
-            // Check in original text structure
-            return preg_match($pattern, $search_text) && !preg_match('/\[LINK\]/', $search_text);
-        }
-
-        return $found;
+        return preg_match($pattern, $search_text) === 1;
     }
 
     /**
