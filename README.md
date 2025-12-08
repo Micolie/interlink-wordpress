@@ -7,7 +7,8 @@ This plugin analyzes your WordPress posts, identifies the most relevant connecti
 ## Features
 
 - 🎯 **Smart Relevance Detection**: Analyzes post content, categories, and tags to find the most relevant connections
-- 🔗 **Natural Anchor Text**: Uses 1-7 word phrases from target post titles for optimal SEO
+- 🤖 **AI-Powered Matching (Optional)**: Use OpenAI to find semantically related posts - understands context, not just keywords
+- 🔗 **Natural Anchor Text**: Uses 2-7 word phrases for optimal SEO value
 - 🏷️ **Category Priority**: Same-category posts are heavily prioritized for better relevance
 - 💾 **Direct Database Modification**: Links are permanently added to your post content for optimal SEO
 - 🔄 **Automatic Processing**: Links are added automatically when you save or update posts
@@ -16,6 +17,7 @@ This plugin analyzes your WordPress posts, identifies the most relevant connecti
 - 🎛️ **Fully Customizable**: Control link density, post types, exclusions, and more
 - 🚀 **Performance Optimized**: Built-in caching system to ensure fast page loads
 - 🎨 **Easy Configuration**: Simple admin interface with all settings in one place
+- 🔑 **Personal API Keys**: Each user can use their own OpenAI API key
 
 ## How It Works
 
@@ -222,7 +224,15 @@ For issues, questions, or contributions:
 
 ## Changelog
 
-### Version 1.5.0 (Latest)
+### Version 1.6.0 (Latest)
+- **NEW**: Optional AI-powered linking using OpenAI for semantic post matching
+- **NEW**: AI settings section in admin panel (enable/disable, API key input)
+- **NEW**: Semantic similarity detection - finds related posts even without keyword matches
+- **NEW**: AI-suggested anchor text for more natural linking
+- **IMPROVED**: Each user can use their own OpenAI API key
+- **IMPROVED**: Plugin works without AI, AI is optional enhancement
+
+### Version 1.5.0
 - **IMPROVED**: Minimum 2-word phrases for better SEO value (no more single-word anchors)
 - **IMPROVED**: Anchor text now ranges from 2-7 words for richer context to search crawlers
 

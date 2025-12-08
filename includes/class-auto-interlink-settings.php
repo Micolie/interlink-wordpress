@@ -48,6 +48,9 @@ class Auto_Interlink_Settings {
             'min_post_length' => 100,
             'same_category_boost' => true,
             'same_tag_boost' => true,
+            // AI Settings
+            'enable_ai' => false,
+            'openai_api_key' => '',
         );
     }
 

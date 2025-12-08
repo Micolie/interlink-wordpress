@@ -89,6 +89,10 @@ class Auto_Interlink_Admin {
             }
         }
 
+        // AI Settings
+        $sanitized['enable_ai'] = isset($input['enable_ai']) ? (bool) $input['enable_ai'] : false;
+        $sanitized['openai_api_key'] = isset($input['openai_api_key']) ? sanitize_text_field($input['openai_api_key']) : '';
+
         return $sanitized;
     }
 
@@ -264,6 +268,52 @@ class Auto_Interlink_Admin {
                         </tr>
                     </tbody>
                 </table>
+
+                <h2 style="margin-top: 30px;"><?php _e('AI-Powered Linking (Optional)', 'auto-interlink'); ?></h2>
+                <p><?php _e('Enable AI to find semantically related posts even when they don\'t share exact keywords. This uses OpenAI to understand the meaning and context of your content.', 'auto-interlink'); ?></p>
+
+                <table class="form-table" role="presentation">
+                    <tbody>
+                        <tr>
+                            <th scope="row">
+                                <label for="enable_ai"><?php _e('Enable AI Matching', 'auto-interlink'); ?></label>
+                            </th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="auto_interlink_settings[enable_ai]" id="enable_ai" value="1" <?php checked($settings['enable_ai'] ?? false, true); ?>>
+                                    <?php _e('Use AI for smart internal linking', 'auto-interlink'); ?>
+                                </label>
+                                <p class="description"><?php _e('When enabled, the plugin uses OpenAI to find related posts based on semantic similarity, not just keyword matching.', 'auto-interlink'); ?></p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row">
+                                <label for="openai_api_key"><?php _e('OpenAI API Key', 'auto-interlink'); ?></label>
+                            </th>
+                            <td>
+                                <input type="password" name="auto_interlink_settings[openai_api_key]" id="openai_api_key" value="<?php echo esc_attr($settings['openai_api_key'] ?? ''); ?>" class="regular-text">
+                                <p class="description">
+                                    <?php _e('Enter your OpenAI API key. Get one from', 'auto-interlink'); ?>
+                                    <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>
+                                </p>
+                                <?php if (!empty($settings['openai_api_key'])) : ?>
+                                <p style="color: green;">✓ <?php _e('API key is set', 'auto-interlink'); ?></p>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background: #f0f6fc; border-left: 4px solid #2271b1; padding: 12px; margin: 20px 0;">
+                    <strong><?php _e('How AI Matching Works:', 'auto-interlink'); ?></strong>
+                    <ul style="margin: 10px 0 0 20px;">
+                        <li><?php _e('Understands that "car" and "automobile" are related', 'auto-interlink'); ?></li>
+                        <li><?php _e('Finds topically related posts even without exact word matches', 'auto-interlink'); ?></li>
+                        <li><?php _e('Suggests better anchor text based on context', 'auto-interlink'); ?></li>
+                        <li><?php _e('Cost: ~$0.0001 per post (very affordable)', 'auto-interlink'); ?></li>
+                    </ul>
+                </div>
 
                 <?php submit_button(__('Save Settings', 'auto-interlink')); ?>
             </form>

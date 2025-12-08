@@ -1,7 +1,7 @@
 <?php
 /**
  * Content analyzer class - finds relevant posts for interlinking
- * Simplified algorithm: prioritizes same-category posts and uses simple word matching
+ * Supports both keyword matching and AI-powered semantic matching
  */
 
 if (!defined('ABSPATH')) {
@@ -12,14 +12,30 @@ class Auto_Interlink_Analyzer {
 
     private $settings;
     private $cache_expiration = 3600; // 1 hour
+    private $openai = null;
 
     public function __construct($settings) {
         $this->settings = $settings;
+
+        // Initialize OpenAI if enabled
+        if ($this->settings->get('enable_ai', false)) {
+            $api_key = $this->settings->get('openai_api_key', '');
+            if (!empty($api_key)) {
+                $this->openai = new Auto_Interlink_OpenAI($api_key);
+            }
+        }
+    }
+
+    /**
+     * Check if AI mode is active
+     */
+    public function is_ai_enabled() {
+        return $this->openai !== null && $this->openai->is_configured();
     }
 
     /**
      * Get relevant posts for a given post
-     * Prioritizes same-category posts and finds linkable words
+     * Uses AI if enabled, otherwise falls back to keyword matching
      */
     public function get_relevant_posts($post_id, $limit = null) {
         if (!$limit) {
@@ -39,15 +55,97 @@ class Auto_Interlink_Analyzer {
             return array();
         }
 
-        // Get source content (lowercase for matching)
-        $source_content = strtolower(wp_strip_all_tags($current_post->post_content));
-
-        // Get current post's categories and tags
-        $current_categories = wp_get_post_categories($post_id);
-        $current_tags = wp_get_post_tags($post_id, array('fields' => 'ids'));
-
         // Get all potential target posts
         $potential_posts = $this->get_potential_target_posts($post_id);
+
+        // Use AI or keyword matching based on settings
+        if ($this->is_ai_enabled()) {
+            $scored_posts = $this->get_relevant_posts_ai($post_id, $current_post, $potential_posts, $limit);
+        } else {
+            $scored_posts = $this->get_relevant_posts_keywords($post_id, $current_post, $potential_posts);
+        }
+
+        // Cache results
+        set_transient($cache_key, $scored_posts, $this->cache_expiration);
+
+        return array_slice($scored_posts, 0, $limit);
+    }
+
+    /**
+     * Get relevant posts using AI (semantic similarity)
+     */
+    private function get_relevant_posts_ai($post_id, $current_post, $potential_posts, $limit) {
+        $source_content = strtolower(wp_strip_all_tags($current_post->post_content));
+
+        // Use OpenAI to find semantically similar posts
+        $similar_posts = $this->openai->find_similar_posts($post_id, $potential_posts, $limit * 2);
+
+        $scored_posts = array();
+
+        foreach ($similar_posts as $similar) {
+            $target_post = $similar['post'];
+            $similarity = $similar['similarity'];
+
+            // Only consider posts with reasonable similarity (> 0.3)
+            if ($similarity < 0.3) {
+                continue;
+            }
+
+            // Get anchor text suggestions from AI
+            $ai_anchors = $this->openai->get_anchor_suggestions($post_id, $target_post->ID);
+
+            // Also try keyword-based anchors as fallback
+            $keyword_anchors = $this->find_linkable_words($target_post->post_title, $source_content);
+
+            // Merge anchors (AI suggestions first)
+            $all_anchors = array_merge($ai_anchors, $keyword_anchors);
+
+            if (empty($all_anchors)) {
+                continue;
+            }
+
+            // Score based on similarity (convert 0-1 to higher score)
+            $score = intval($similarity * 200);
+
+            // Add category/tag boosts
+            $current_categories = wp_get_post_categories($post_id);
+            $current_tags = wp_get_post_tags($post_id, array('fields' => 'ids'));
+
+            if ($this->settings->get('same_category_boost', true)) {
+                $target_categories = wp_get_post_categories($target_post->ID);
+                $common_cats = array_intersect($current_categories, $target_categories);
+                $score += count($common_cats) * 50;
+            }
+
+            if ($this->settings->get('same_tag_boost', true)) {
+                $target_tags = wp_get_post_tags($target_post->ID, array('fields' => 'ids'));
+                $common_tags = array_intersect($current_tags, $target_tags);
+                $score += count($common_tags) * 25;
+            }
+
+            $scored_posts[] = array(
+                'post' => $target_post,
+                'score' => $score,
+                'keywords' => $all_anchors,
+                'ai_similarity' => $similarity,
+            );
+        }
+
+        // Sort by score (highest first)
+        usort($scored_posts, function($a, $b) {
+            return $b['score'] - $a['score'];
+        });
+
+        return $scored_posts;
+    }
+
+    /**
+     * Get relevant posts using keyword matching (original algorithm)
+     */
+    private function get_relevant_posts_keywords($post_id, $current_post, $potential_posts) {
+        $source_content = strtolower(wp_strip_all_tags($current_post->post_content));
+        $current_categories = wp_get_post_categories($post_id);
+        $current_tags = wp_get_post_tags($post_id, array('fields' => 'ids'));
 
         $scored_posts = array();
 
@@ -88,10 +186,7 @@ class Auto_Interlink_Analyzer {
             return $b['score'] - $a['score'];
         });
 
-        // Cache results
-        set_transient($cache_key, $scored_posts, $this->cache_expiration);
-
-        return array_slice($scored_posts, 0, $limit);
+        return $scored_posts;
     }
 
     /**
