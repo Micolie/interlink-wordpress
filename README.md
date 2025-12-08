@@ -2,12 +2,13 @@
 
 **Automatically create natural interlinks between relevant WordPress posts using SEO-friendly anchor text.**
 
-This plugin analyzes your WordPress posts, identifies the most relevant connections, and automatically creates hyperlinks using 1-3 word phrases. It saves tons of hours by automating the entire internal linking process, improving SEO and user navigation.
+This plugin analyzes your WordPress posts, identifies the most relevant connections, and automatically creates hyperlinks using 1-7 word phrases. It prioritizes posts in the same category for better SEO relevance.
 
 ## Features
 
 - 🎯 **Smart Relevance Detection**: Analyzes post content, categories, and tags to find the most relevant connections
-- 🔗 **Natural Anchor Text**: Uses 1-3 word phrases for optimal SEO value
+- 🔗 **Natural Anchor Text**: Uses 1-7 word phrases from target post titles for optimal SEO
+- 🏷️ **Category Priority**: Same-category posts are heavily prioritized for better relevance
 - 💾 **Direct Database Modification**: Links are permanently added to your post content for optimal SEO
 - 🔄 **Automatic Processing**: Links are added automatically when you save or update posts
 - 📦 **Bulk Processing**: Process all existing posts at once with one click
@@ -18,10 +19,10 @@ This plugin analyzes your WordPress posts, identifies the most relevant connecti
 
 ## How It Works
 
-1. **Analyzes Content**: The plugin extracts relevant 1-3 word phrases from your posts
-2. **Finds Connections**: Identifies which posts are most relevant based on phrase overlap, categories, and tags
-3. **Adds Links Automatically**: When you save a post, it permanently inserts links to related posts using natural anchor text
-4. **Direct Modification**: Links are permanently added to your post content in the database for better SEO
+1. **Finds Target Posts**: Looks for other posts in the same category (highest priority) or with matching tags
+2. **Extracts Anchor Text**: Takes 1-7 word phrases from the target post's title
+3. **Matches in Content**: Searches for these phrases in your current post's content
+4. **Creates Links**: When a match is found, it creates a link using the phrase as anchor text
 
 ## Installation
 
@@ -49,8 +50,9 @@ Navigate to **Settings → Auto Interlink** in your WordPress admin to configure
 
 - **Enable Auto Interlinking**: Toggle the plugin on/off
 - **Maximum Links Per Post**: Control how many automatic links to add (default: 5)
-- **Minimum Phrase Length**: Minimum characters for longtail phrases (default: 10)
-- **Maximum Phrase Length**: Maximum characters for longtail phrases (default: 100)
+- **Minimum Phrase Length**: Minimum characters for anchor text (default: 3)
+- **Maximum Phrase Length**: Maximum characters for anchor text (default: 100)
+- **Maximum Phrase Words**: Maximum words for anchor text (default: 7)
 - **Minimum Post Length**: Only add links to posts with this many words (default: 100)
 
 ### Post Types
@@ -94,17 +96,17 @@ The "Posts Without Internal Links" section displays all posts that don't have au
 
 This is useful when you want more control over which posts receive automatic links.
 
-**Note**: The plugin uses 1-3 word phrases from your content as anchor text for natural interlinking.
+**Note**: The plugin uses 1-7 word phrases from target post titles as anchor text for natural interlinking.
 
 ## Usage Examples
 
 ### Example 1: Blog with Related Articles
 
-If you have a blog post about "WordPress SEO Best Practices" and another about "Improving Website Performance", the plugin will:
+If you have a post titled "WordPress SEO Best Practices" and your content mentions "seo best practices", the plugin will:
 
-1. Extract phrases like "wordpress seo", "seo best practices", "website performance", "performance optimization"
-2. Calculate relevance based on phrase overlap and taxonomy
-3. Automatically add links using natural 1-3 word anchors from matching content
+1. Find posts in the same category first (priority linking)
+2. Look for the target post's title words in your content (e.g., "seo", "best practices", "wordpress seo")
+3. Create a link using the matched phrase as anchor text
 
 ### Example 2: Documentation Site
 
@@ -189,10 +191,10 @@ Yes, you can select specific post types in the settings (posts, pages, custom po
 1. Check that the plugin is enabled in Settings → Auto Interlink
 2. Verify your post meets the minimum word count (default: 100 words)
 3. Ensure the post type is enabled in settings
-4. Save or update the post to trigger link processing
-5. Use the "Process All Posts" button to process existing posts
-6. Check that your content has suitable 1-3 word phrases for linking
-7. Ensure matching phrases exist in both the source and target posts
+4. Clear the cache from the settings page
+5. Use the "Posts Without Internal Links" section to select and process specific posts
+6. Ensure your content contains words from other posts' titles (the anchor text source)
+7. Posts in the same category are prioritized - check category assignments
 
 ### Too many/few links
 
@@ -220,7 +222,22 @@ For issues, questions, or contributions:
 
 ## Changelog
 
-### Version 1.2.0 (Latest)
+### Version 1.4.0 (Latest)
+- **REWRITE**: Completely rewritten algorithm for reliable linking
+- **NEW**: Simple word matching - finds individual words from target titles in your content
+- **NEW**: Preserves original text case when creating links
+- **IMPROVED**: Minimum word length of 4 characters to avoid common words
+- **IMPROVED**: Extended stop words list to filter out generic terms
+- **FIX**: Links now actually get added to posts
+
+### Version 1.3.0
+- **NEW**: Anchor text now uses 1-7 word phrases (configurable) instead of 1-3
+- **NEW**: Simplified matching algorithm - uses target post titles as anchor text source
+- **IMPROVED**: Same-category posts now heavily prioritized (100 points vs 50 for tags)
+- **IMPROVED**: Reduced minimum keyword length from 10 to 3 characters
+- **FIX**: Algorithm now properly finds linkable phrases in content
+
+### Version 1.2.0
 - **NEW**: Posts Without Internal Links section - view and select specific posts to process
 - **NEW**: Selective processing - choose which posts to add links to, avoiding database overload
 - **FIX**: Fixed critical bug where posts with existing links couldn't receive new auto-interlinks

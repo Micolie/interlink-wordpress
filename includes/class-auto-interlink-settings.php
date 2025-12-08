@@ -37,8 +37,9 @@ class Auto_Interlink_Settings {
         return array(
             'enabled' => true,
             'max_links_per_post' => 5,
-            'min_keyword_length' => 10,
+            'min_keyword_length' => 3,
             'max_keyword_length' => 100,
+            'max_phrase_words' => 7,
             'post_types' => array('post'),
             'link_to_newer_posts' => true,
             'link_to_older_posts' => true,

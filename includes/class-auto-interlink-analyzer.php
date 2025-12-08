@@ -1,6 +1,7 @@
 <?php
 /**
  * Content analyzer class - finds relevant posts for interlinking
+ * Simplified algorithm: prioritizes same-category posts and uses simple word matching
  */
 
 if (!defined('ABSPATH')) {
@@ -12,15 +13,13 @@ class Auto_Interlink_Analyzer {
     private $settings;
     private $cache_expiration = 3600; // 1 hour
 
-    /**
-     * Constructor
-     */
     public function __construct($settings) {
         $this->settings = $settings;
     }
 
     /**
      * Get relevant posts for a given post
+     * Prioritizes same-category posts and finds linkable words
      */
     public function get_relevant_posts($post_id, $limit = null) {
         if (!$limit) {
@@ -35,29 +34,53 @@ class Auto_Interlink_Analyzer {
             return array_slice($cached, 0, $limit);
         }
 
-        // Get the current post
         $current_post = get_post($post_id);
         if (!$current_post) {
             return array();
         }
 
-        // Extract keywords from current post
-        $keywords = $this->extract_keywords($current_post->post_content, $current_post->post_title);
+        // Get source content (lowercase for matching)
+        $source_content = strtolower(wp_strip_all_tags($current_post->post_content));
+
+        // Get current post's categories and tags
+        $current_categories = wp_get_post_categories($post_id);
+        $current_tags = wp_get_post_tags($post_id, array('fields' => 'ids'));
 
         // Get all potential target posts
         $potential_posts = $this->get_potential_target_posts($post_id);
 
-        // Score and rank posts by relevance
         $scored_posts = array();
+
         foreach ($potential_posts as $target_post) {
-            $score = $this->calculate_relevance_score($current_post, $target_post, $keywords);
-            if ($score > 0) {
-                $scored_posts[] = array(
-                    'post' => $target_post,
-                    'score' => $score,
-                    'keywords' => $this->find_matching_keywords($keywords, $target_post)
-                );
+            // Find linkable words from target title that exist in source content
+            $linkable_words = $this->find_linkable_words($target_post->post_title, $source_content);
+
+            if (empty($linkable_words)) {
+                continue;
             }
+
+            // Calculate score - heavily favor same category
+            $score = 10; // Base score for having linkable words
+
+            // Same category boost (main priority)
+            if ($this->settings->get('same_category_boost', true)) {
+                $target_categories = wp_get_post_categories($target_post->ID);
+                $common_cats = array_intersect($current_categories, $target_categories);
+                $score += count($common_cats) * 100;
+            }
+
+            // Same tag boost
+            if ($this->settings->get('same_tag_boost', true)) {
+                $target_tags = wp_get_post_tags($target_post->ID, array('fields' => 'ids'));
+                $common_tags = array_intersect($current_tags, $target_tags);
+                $score += count($common_tags) * 50;
+            }
+
+            $scored_posts[] = array(
+                'post' => $target_post,
+                'score' => $score,
+                'keywords' => $linkable_words
+            );
         }
 
         // Sort by score (highest first)
@@ -65,120 +88,45 @@ class Auto_Interlink_Analyzer {
             return $b['score'] - $a['score'];
         });
 
-        // Cache the results
+        // Cache results
         set_transient($cache_key, $scored_posts, $this->cache_expiration);
 
         return array_slice($scored_posts, 0, $limit);
     }
 
     /**
-     * Extract phrases (1-3 words) from content
+     * Find words from title that exist in content
+     * Simple and reliable - just looks for individual words
      */
-    public function extract_keywords($content, $title = '') {
-        // Combine title and content
-        $text = $title . ' ' . $content;
-
-        // Remove HTML tags
-        $text = wp_strip_all_tags($text);
-
-        // Remove shortcodes
-        $text = strip_shortcodes($text);
-
-        // Convert to lowercase unless case sensitive
-        if (!$this->settings->get('case_sensitive', false)) {
-            $text = strtolower($text);
-        }
-
-        // Get settings
-        $min_length = $this->settings->get('min_keyword_length', 3);
-        $max_length = $this->settings->get('max_keyword_length', 100);
-
-        // Split into sentences
-        $sentences = preg_split('/[.!?]+/', $text, -1, PREG_SPLIT_NO_EMPTY);
-
-        $phrases = array();
+    private function find_linkable_words($title, $content) {
+        $title_lower = strtolower(wp_strip_all_tags($title));
         $stop_words = $this->get_stop_words();
+        $min_word_length = 4; // Minimum word length to avoid matching common short words
 
-        foreach ($sentences as $sentence) {
-            // Extract words from sentence
-            preg_match_all('/\b[\w\-]+\b/u', $sentence, $matches);
-            $words = $matches[0];
+        // Extract words from title
+        preg_match_all('/[a-zA-Z]+/u', $title_lower, $matches);
+        $words = $matches[0];
 
-            // Filter out stop words for multi-word phrases
-            $filtered_words = array();
-            foreach ($words as $word) {
-                if (!in_array($word, $stop_words) && mb_strlen($word) >= 2) {
-                    $filtered_words[] = $word;
-                }
+        $linkable = array();
+
+        foreach ($words as $word) {
+            // Skip stop words and short words
+            if (in_array($word, $stop_words) || strlen($word) < $min_word_length) {
+                continue;
             }
 
-            // Extract 1-word, 2-word, and 3-word phrases
-            for ($phrase_length = 1; $phrase_length <= 3; $phrase_length++) {
-                // Use filtered words for all phrase lengths
-                $words_to_use = $filtered_words;
-
-                for ($i = 0; $i <= count($words_to_use) - $phrase_length; $i++) {
-                    $phrase = implode(' ', array_slice($words_to_use, $i, $phrase_length));
-                    $phrase_char_length = mb_strlen($phrase);
-
-                    // Check phrase length constraints
-                    if ($phrase_char_length >= $min_length && $phrase_char_length <= $max_length) {
-                        if (!isset($phrases[$phrase])) {
-                            $phrases[$phrase] = 0;
-                        }
-                        // Give higher weight to longer phrases
-                        $phrases[$phrase] += $phrase_length;
-                    }
-                }
+            // Simple check: does this word exist in content?
+            // Use word boundaries to avoid partial matches
+            if (preg_match('/\b' . preg_quote($word, '/') . '\b/i', $content)) {
+                // Weight longer words higher
+                $linkable[$word] = strlen($word) * 10;
             }
         }
 
-        // Extract phrases from title with higher weight
-        if ($title) {
-            $title_clean = wp_strip_all_tags($title);
-            if (!$this->settings->get('case_sensitive', false)) {
-                $title_clean = strtolower($title_clean);
-            }
+        // Sort by weight (longer words first)
+        arsort($linkable);
 
-            // Extract words from title
-            preg_match_all('/\b[\w\-]+\b/u', $title_clean, $matches);
-            $title_words = $matches[0];
-
-            // Filter title words
-            $filtered_title_words = array();
-            foreach ($title_words as $word) {
-                if (!in_array($word, $stop_words) && mb_strlen($word) >= 2) {
-                    $filtered_title_words[] = $word;
-                }
-            }
-
-            // Extract 1-3 word phrases from title
-            for ($phrase_length = 1; $phrase_length <= 3; $phrase_length++) {
-                for ($i = 0; $i <= count($filtered_title_words) - $phrase_length; $i++) {
-                    $phrase = implode(' ', array_slice($filtered_title_words, $i, $phrase_length));
-                    $phrase_char_length = mb_strlen($phrase);
-
-                    if ($phrase_char_length >= $min_length && $phrase_char_length <= $max_length) {
-                        // Title phrases get higher weight based on length
-                        $phrases[$phrase] = (isset($phrases[$phrase]) ? $phrases[$phrase] : 0) + (5 * $phrase_length);
-                    }
-                }
-            }
-
-            // If title itself is 1-3 words, add it with extra weight
-            $title_word_count = count($filtered_title_words);
-            if ($title_word_count >= 1 && $title_word_count <= 3) {
-                $title_phrase = implode(' ', $filtered_title_words);
-                if (mb_strlen($title_phrase) >= $min_length && mb_strlen($title_phrase) <= $max_length) {
-                    $phrases[$title_phrase] = (isset($phrases[$title_phrase]) ? $phrases[$title_phrase] : 0) + 20;
-                }
-            }
-        }
-
-        // Sort by frequency (highest first)
-        arsort($phrases);
-
-        return $phrases;
+        return $linkable;
     }
 
     /**
@@ -203,69 +151,7 @@ class Auto_Interlink_Analyzer {
     }
 
     /**
-     * Calculate relevance score between two posts
-     */
-    private function calculate_relevance_score($source_post, $target_post, $source_keywords) {
-        $score = 0;
-
-        // Extract target keywords
-        $target_keywords = $this->extract_keywords($target_post->post_content, $target_post->post_title);
-
-        // Calculate keyword overlap
-        foreach ($source_keywords as $keyword => $freq) {
-            if (isset($target_keywords[$keyword])) {
-                $score += min($freq, $target_keywords[$keyword]) * mb_strlen($keyword);
-            }
-        }
-
-        // Boost score for same category
-        if ($this->settings->get('same_category_boost', true)) {
-            $source_cats = wp_get_post_categories($source_post->ID);
-            $target_cats = wp_get_post_categories($target_post->ID);
-            $common_cats = array_intersect($source_cats, $target_cats);
-            $score += count($common_cats) * 50;
-        }
-
-        // Boost score for same tags
-        if ($this->settings->get('same_tag_boost', true)) {
-            $source_tags = wp_get_post_tags($source_post->ID, array('fields' => 'ids'));
-            $target_tags = wp_get_post_tags($target_post->ID, array('fields' => 'ids'));
-            $common_tags = array_intersect($source_tags, $target_tags);
-            $score += count($common_tags) * 30;
-        }
-
-        return $score;
-    }
-
-    /**
-     * Find matching keywords between source and target
-     */
-    private function find_matching_keywords($source_keywords, $target_post) {
-        $target_keywords = $this->extract_keywords($target_post->post_content, $target_post->post_title);
-        $matching = array();
-
-        foreach ($source_keywords as $keyword => $freq) {
-            if (isset($target_keywords[$keyword])) {
-                $matching[$keyword] = $freq;
-            }
-        }
-
-        // Sort by frequency and length (prefer longer, more specific phrases)
-        uasort($matching, function($a, $b) use ($source_keywords) {
-            $a_key = array_search($a, $source_keywords);
-            $b_key = array_search($b, $source_keywords);
-
-            $a_score = $a * mb_strlen($a_key);
-            $b_score = $b * mb_strlen($b_key);
-
-            return $b_score - $a_score;
-        });
-
-        return $matching;
-    }
-
-    /**
-     * Get common stop words to exclude
+     * Get stop words to exclude
      */
     private function get_stop_words() {
         return array(
@@ -275,7 +161,7 @@ class Auto_Interlink_Analyzer {
             'each', 'few', 'for', 'from', 'further',
             'had', 'has', 'have', 'having', 'he', 'her', 'here', 'hers', 'herself', 'him', 'himself', 'his', 'how',
             'i', 'if', 'in', 'into', 'is', 'it', 'its', 'itself',
-            'just',
+            'just', 'know',
             'me', 'might', 'more', 'most', 'must', 'my', 'myself',
             'no', 'nor', 'not', 'now',
             'of', 'off', 'on', 'once', 'only', 'or', 'other', 'our', 'ours', 'ourselves', 'out', 'over', 'own',
@@ -284,7 +170,10 @@ class Auto_Interlink_Analyzer {
             'under', 'until', 'up',
             'very',
             'was', 'we', 'were', 'what', 'when', 'where', 'which', 'while', 'who', 'whom', 'why', 'will', 'with', 'would',
-            'you', 'your', 'yours', 'yourself', 'yourselves'
+            'you', 'your', 'yours', 'yourself', 'yourselves',
+            'also', 'back', 'come', 'could', 'even', 'first', 'get', 'give', 'go', 'good', 'great',
+            'just', 'like', 'look', 'make', 'many', 'may', 'much', 'need', 'new', 'one', 'only',
+            'other', 'over', 'say', 'see', 'take', 'think', 'time', 'two', 'use', 'want', 'way', 'well', 'work', 'year'
         );
     }
 
