@@ -222,7 +222,11 @@ For issues, questions, or contributions:
 
 ## Changelog
 
-### Version 1.4.0 (Latest)
+### Version 1.5.0 (Latest)
+- **IMPROVED**: Minimum 2-word phrases for better SEO value (no more single-word anchors)
+- **IMPROVED**: Anchor text now ranges from 2-7 words for richer context to search crawlers
+
+### Version 1.4.0
 - **REWRITE**: Completely rewritten algorithm for reliable linking
 - **NEW**: Simple word matching - finds individual words from target titles in your content
 - **NEW**: Preserves original text case when creating links

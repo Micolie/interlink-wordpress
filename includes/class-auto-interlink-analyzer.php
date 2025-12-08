@@ -95,35 +95,49 @@ class Auto_Interlink_Analyzer {
     }
 
     /**
-     * Find words from title that exist in content
-     * Simple and reliable - just looks for individual words
+     * Find phrases (2-7 words) from title that exist in content
+     * Minimum 2 words for better SEO value
      */
     private function find_linkable_words($title, $content) {
         $title_lower = strtolower(wp_strip_all_tags($title));
         $stop_words = $this->get_stop_words();
-        $min_word_length = 4; // Minimum word length to avoid matching common short words
+        $max_phrase_words = $this->settings->get('max_phrase_words', 7);
+        $min_phrase_words = 2; // Minimum 2 words for better SEO
 
-        // Extract words from title
+        // Extract all words from title
         preg_match_all('/[a-zA-Z]+/u', $title_lower, $matches);
-        $words = $matches[0];
+        $all_words = $matches[0];
 
-        $linkable = array();
-
-        foreach ($words as $word) {
-            // Skip stop words and short words
-            if (in_array($word, $stop_words) || strlen($word) < $min_word_length) {
-                continue;
-            }
-
-            // Simple check: does this word exist in content?
-            // Use word boundaries to avoid partial matches
-            if (preg_match('/\b' . preg_quote($word, '/') . '\b/i', $content)) {
-                // Weight longer words higher
-                $linkable[$word] = strlen($word) * 10;
+        // Filter out stop words to get meaningful words
+        $filtered_words = array();
+        foreach ($all_words as $word) {
+            if (!in_array($word, $stop_words) && strlen($word) >= 3) {
+                $filtered_words[] = $word;
             }
         }
 
-        // Sort by weight (longer words first)
+        // Need at least 2 words to make phrases
+        if (count($filtered_words) < $min_phrase_words) {
+            return array();
+        }
+
+        $linkable = array();
+
+        // Generate phrases from longest to shortest (2 to max_phrase_words)
+        for ($length = min($max_phrase_words, count($filtered_words)); $length >= $min_phrase_words; $length--) {
+            for ($i = 0; $i <= count($filtered_words) - $length; $i++) {
+                $phrase = implode(' ', array_slice($filtered_words, $i, $length));
+
+                // Check if phrase exists in content
+                $pattern = '/\b' . preg_quote($phrase, '/') . '\b/i';
+                if (preg_match($pattern, $content)) {
+                    // Weight by number of words (longer = better for SEO)
+                    $linkable[$phrase] = $length * 20;
+                }
+            }
+        }
+
+        // Sort by weight (longer phrases first)
         arsort($linkable);
 
         return $linkable;
