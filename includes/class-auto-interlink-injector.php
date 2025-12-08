@@ -143,9 +143,10 @@ class Auto_Interlink_Injector {
                     break 2;
                 }
 
-                // Only process phrases with 1-3 words
+                // Only process phrases with 1-7 words
+                $max_phrase_words = $this->settings->get('max_phrase_words', 7);
                 $word_count = str_word_count($phrase);
-                if ($word_count < 1 || $word_count > 3) {
+                if ($word_count < 1 || $word_count > $max_phrase_words) {
                     continue;
                 }
 
