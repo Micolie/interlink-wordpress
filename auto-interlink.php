@@ -3,7 +3,7 @@
  * Plugin Name: Auto Interlink
  * Plugin URI: https://github.com/Micolie/interlink-wordpress
  * Description: Automatically creates natural interlinks between relevant posts using 1-7 word phrases. Prioritizes same-category posts for better SEO.
- * Version: 1.5.0
+ * Version: 1.6.0
  * Author: Auto Interlink Team
  * Author URI: https://github.com/Micolie
  * License: GPL v2 or later
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('AUTO_INTERLINK_VERSION', '1.5.0');
+define('AUTO_INTERLINK_VERSION', '1.6.0');
 define('AUTO_INTERLINK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AUTO_INTERLINK_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AUTO_INTERLINK_PLUGIN_FILE', __FILE__);
@@ -28,6 +28,7 @@ define('AUTO_INTERLINK_PLUGIN_FILE', __FILE__);
 require_once AUTO_INTERLINK_PLUGIN_DIR . 'includes/class-auto-interlink-settings.php';
 require_once AUTO_INTERLINK_PLUGIN_DIR . 'includes/class-auto-interlink-analyzer.php';
 require_once AUTO_INTERLINK_PLUGIN_DIR . 'includes/class-auto-interlink-injector.php';
+require_once AUTO_INTERLINK_PLUGIN_DIR . 'includes/class-auto-interlink-openai.php';
 require_once AUTO_INTERLINK_PLUGIN_DIR . 'includes/class-auto-interlink-admin.php';
 
 /**
