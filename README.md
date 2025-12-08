@@ -11,6 +11,7 @@ This plugin analyzes your WordPress posts, identifies the most relevant connecti
 - 💾 **Direct Database Modification**: Links are permanently added to your post content for optimal SEO
 - 🔄 **Automatic Processing**: Links are added automatically when you save or update posts
 - 📦 **Bulk Processing**: Process all existing posts at once with one click
+- 📋 **Selective Processing**: View posts without links and choose which ones to process
 - 🎛️ **Fully Customizable**: Control link density, post types, exclusions, and more
 - 🚀 **Performance Optimized**: Built-in caching system to ensure fast page loads
 - 🎨 **Easy Configuration**: Simple admin interface with all settings in one place
@@ -82,6 +83,16 @@ Process all existing posts at once to add interlinks. This feature allows you to
 - Useful for initial setup or after importing content
 
 **Important**: This directly modifies your post content in the database. Always backup your database before bulk processing.
+
+### Selective Processing
+
+The "Posts Without Internal Links" section displays all posts that don't have auto-interlinks yet:
+- View a table of all posts without internal links
+- See post ID, title, type, date, and word count
+- Select specific posts using checkboxes
+- Process only the posts you choose to avoid database overload
+
+This is useful when you want more control over which posts receive automatic links.
 
 **Note**: The plugin uses 1-3 word phrases from your content as anchor text for natural interlinking.
 
@@ -209,7 +220,13 @@ For issues, questions, or contributions:
 
 ## Changelog
 
-### Version 1.1.0 (Latest)
+### Version 1.2.0 (Latest)
+- **NEW**: Posts Without Internal Links section - view and select specific posts to process
+- **NEW**: Selective processing - choose which posts to add links to, avoiding database overload
+- **FIX**: Fixed critical bug where posts with existing links couldn't receive new auto-interlinks
+- **IMPROVED**: Simplified and more reliable phrase detection algorithm
+
+### Version 1.1.0
 - **BREAKING CHANGE**: Switched from filter-based to direct database modification for better SEO
 - **NEW**: Smart anchor text using 1-3 word phrases for natural interlinking
 - **NEW**: Bulk processing feature to process all existing posts at once

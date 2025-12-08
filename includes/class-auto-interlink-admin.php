@@ -123,6 +123,11 @@ class Auto_Interlink_Admin {
             $this->process_all_posts();
         }
 
+        // Handle processing selected posts
+        if (isset($_POST['process_selected_posts']) && check_admin_referer('auto_interlink_process_selected')) {
+            $this->process_selected_posts();
+        }
+
         $settings = $this->settings->get_all();
         ?>
         <div class="wrap">
@@ -288,6 +293,66 @@ class Auto_Interlink_Admin {
 
             <hr>
 
+            <h2><?php _e('Posts Without Internal Links', 'auto-interlink'); ?></h2>
+            <p><?php _e('Select specific posts to process. Only posts without existing auto-interlinks are shown.', 'auto-interlink'); ?></p>
+
+            <?php
+            $posts_without_links = $this->get_posts_without_links();
+            if (!empty($posts_without_links)) :
+            ?>
+            <form method="post">
+                <?php wp_nonce_field('auto_interlink_process_selected'); ?>
+                <table class="wp-list-table widefat fixed striped" style="max-width: 800px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 30px;"><input type="checkbox" id="select-all-posts"></th>
+                            <th style="width: 60px;"><?php _e('ID', 'auto-interlink'); ?></th>
+                            <th><?php _e('Title', 'auto-interlink'); ?></th>
+                            <th style="width: 100px;"><?php _e('Type', 'auto-interlink'); ?></th>
+                            <th style="width: 120px;"><?php _e('Date', 'auto-interlink'); ?></th>
+                            <th style="width: 80px;"><?php _e('Words', 'auto-interlink'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($posts_without_links as $post) :
+                            $word_count = str_word_count(wp_strip_all_tags($post->post_content));
+                            $post_type_obj = get_post_type_object($post->post_type);
+                        ?>
+                        <tr>
+                            <td><input type="checkbox" name="selected_posts[]" value="<?php echo esc_attr($post->ID); ?>"></td>
+                            <td><?php echo esc_html($post->ID); ?></td>
+                            <td>
+                                <a href="<?php echo esc_url(get_edit_post_link($post->ID)); ?>" target="_blank">
+                                    <?php echo esc_html($post->post_title); ?>
+                                </a>
+                            </td>
+                            <td><?php echo esc_html($post_type_obj ? $post_type_obj->labels->singular_name : $post->post_type); ?></td>
+                            <td><?php echo esc_html(get_the_date('Y-m-d', $post)); ?></td>
+                            <td><?php echo esc_html($word_count); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <p style="margin-top: 10px;">
+                    <strong><?php printf(__('Total: %d posts without internal links', 'auto-interlink'), count($posts_without_links)); ?></strong>
+                </p>
+                <input type="hidden" name="process_selected_posts" value="1">
+                <?php submit_button(__('Process Selected Posts', 'auto-interlink'), 'primary', 'submit', false); ?>
+            </form>
+            <script>
+            document.getElementById('select-all-posts').addEventListener('change', function() {
+                var checkboxes = document.querySelectorAll('input[name="selected_posts[]"]');
+                for (var i = 0; i < checkboxes.length; i++) {
+                    checkboxes[i].checked = this.checked;
+                }
+            });
+            </script>
+            <?php else : ?>
+            <p><em><?php _e('All posts already have internal links or no posts match your settings.', 'auto-interlink'); ?></em></p>
+            <?php endif; ?>
+
+            <hr>
+
             <h2><?php _e('How It Works', 'auto-interlink'); ?></h2>
             <ol>
                 <li><?php _e('The plugin analyzes your posts to extract relevant 1-3 word phrases.', 'auto-interlink'); ?></li>
@@ -341,6 +406,71 @@ class Auto_Interlink_Admin {
             $processed,
             $total_posts,
             $links_added
+        );
+        echo '</p></div>';
+    }
+
+    /**
+     * Get all posts without internal auto-interlinks
+     */
+    private function get_posts_without_links() {
+        $post_types = $this->settings->get('post_types', array('post'));
+        $exclude_posts = $this->settings->get('exclude_posts', array());
+
+        $args = array(
+            'post_type' => $post_types,
+            'post_status' => 'publish',
+            'posts_per_page' => -1,
+            'post__not_in' => $exclude_posts,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        );
+
+        $query = new WP_Query($args);
+        $posts_without_links = array();
+
+        foreach ($query->posts as $post) {
+            // Check if post doesn't have auto-interlinks
+            if (strpos($post->post_content, 'class="auto-interlink"') === false) {
+                $posts_without_links[] = $post;
+            }
+        }
+
+        return $posts_without_links;
+    }
+
+    /**
+     * Process selected posts for interlinking
+     */
+    private function process_selected_posts() {
+        if (!isset($_POST['selected_posts']) || empty($_POST['selected_posts'])) {
+            echo '<div class="notice notice-warning"><p>' . __('No posts selected.', 'auto-interlink') . '</p></div>';
+            return;
+        }
+
+        set_time_limit(0); // Prevent timeout
+
+        $selected_ids = array_map('absint', $_POST['selected_posts']);
+        $processed = 0;
+        $links_added = 0;
+
+        $analyzer = new Auto_Interlink_Analyzer($this->settings);
+        $injector = new Auto_Interlink_Injector($this->settings, $analyzer);
+
+        foreach ($selected_ids as $post_id) {
+            $result = $injector->process_post($post_id);
+            if ($result !== false) {
+                $processed++;
+                $links_added += $result;
+            }
+        }
+
+        echo '<div class="notice notice-success"><p>';
+        printf(
+            __('Selected posts processed! Added %d interlinks to %d out of %d selected posts.', 'auto-interlink'),
+            $links_added,
+            $processed,
+            count($selected_ids)
         );
         echo '</p></div>';
     }
