@@ -222,7 +222,15 @@ For issues, questions, or contributions:
 
 ## Changelog
 
-### Version 1.3.0 (Latest)
+### Version 1.4.0 (Latest)
+- **REWRITE**: Completely rewritten algorithm for reliable linking
+- **NEW**: Simple word matching - finds individual words from target titles in your content
+- **NEW**: Preserves original text case when creating links
+- **IMPROVED**: Minimum word length of 4 characters to avoid common words
+- **IMPROVED**: Extended stop words list to filter out generic terms
+- **FIX**: Links now actually get added to posts
+
+### Version 1.3.0
 - **NEW**: Anchor text now uses 1-7 word phrases (configurable) instead of 1-3
 - **NEW**: Simplified matching algorithm - uses target post titles as anchor text source
 - **IMPROVED**: Same-category posts now heavily prioritized (100 points vs 50 for tags)

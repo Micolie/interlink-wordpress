@@ -13,9 +13,6 @@ class Auto_Interlink_Injector {
     private $analyzer;
     private $links_added = 0;
 
-    /**
-     * Constructor
-     */
     public function __construct($settings, $analyzer) {
         $this->settings = $settings;
         $this->analyzer = $analyzer;
@@ -25,12 +22,10 @@ class Auto_Interlink_Injector {
      * Process a post and add interlinks directly to database
      */
     public function process_post($post_id) {
-        // Check if plugin is enabled
         if (!$this->settings->is_enabled()) {
             return false;
         }
 
-        // Get the post
         $post = get_post($post_id);
         if (!$post) {
             return false;
@@ -61,7 +56,6 @@ class Auto_Interlink_Injector {
             return false;
         }
 
-        // Reset counter
         $this->links_added = 0;
 
         // Get relevant posts
@@ -73,20 +67,17 @@ class Auto_Interlink_Injector {
         }
 
         // Process content and add links
-        $modified_content = $this->add_links_to_content($content, $relevant_posts, $post->ID);
+        $modified_content = $this->add_links_to_content($content, $relevant_posts);
 
         // Only update if content was modified
         if ($modified_content !== $content && $this->links_added > 0) {
-            // Unhook to prevent infinite loop
             remove_action('save_post', array($this, 'process_post_on_save'));
 
-            // Update post content directly in database
             wp_update_post(array(
                 'ID' => $post_id,
                 'post_content' => $modified_content
             ));
 
-            // Re-hook
             add_action('save_post', array($this, 'process_post_on_save'), 10, 1);
 
             return $this->links_added;
@@ -99,74 +90,50 @@ class Auto_Interlink_Injector {
      * Process post on save
      */
     public function process_post_on_save($post_id) {
-        // Check if this is an autosave
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
             return;
         }
 
-        // Check user permissions
         if (!current_user_can('edit_post', $post_id)) {
             return;
         }
 
-        // Process the post
         $this->process_post($post_id);
     }
 
     /**
      * Add links to content based on relevant posts
      */
-    private function add_links_to_content($content, $relevant_posts, $current_post_id) {
+    private function add_links_to_content($content, $relevant_posts) {
         $max_links = $this->settings->get('max_links_per_post', 5);
-        $case_sensitive = $this->settings->get('case_sensitive', false);
-
-        // Work directly with the content instead of splitting it
         $modified_content = $content;
 
-        // Try to add links from relevant posts
         foreach ($relevant_posts as $relevant_data) {
             if ($this->links_added >= $max_links) {
                 break;
             }
 
             $target_post = $relevant_data['post'];
-            $phrases = array_keys($relevant_data['keywords']);
+            $keywords = array_keys($relevant_data['keywords']);
 
-            // Sort phrases by length (longest first for better matching)
-            usort($phrases, function($a, $b) {
-                return mb_strlen($b) - mb_strlen($a);
+            // Sort by length (longest first)
+            usort($keywords, function($a, $b) {
+                return strlen($b) - strlen($a);
             });
 
-            // Try each phrase for this post
-            foreach ($phrases as $phrase) {
+            // Try each keyword
+            foreach ($keywords as $keyword) {
                 if ($this->links_added >= $max_links) {
                     break 2;
                 }
 
-                // Only process phrases with 1-7 words
-                $max_phrase_words = $this->settings->get('max_phrase_words', 7);
-                $word_count = str_word_count($phrase);
-                if ($word_count < 1 || $word_count > $max_phrase_words) {
-                    continue;
-                }
+                // Try to add link for this keyword
+                $result = $this->add_single_link($modified_content, $keyword, $target_post);
 
-                // Check if phrase exists in content and isn't already linked
-                if ($this->phrase_exists_and_not_linked($modified_content, $phrase, $case_sensitive)) {
-                    // Create the link
-                    $link = $this->create_link($target_post, $phrase);
-
-                    // Replace first occurrence of phrase with link
-                    $modified_content = $this->replace_phrase_with_link(
-                        $modified_content,
-                        $phrase,
-                        $link,
-                        $case_sensitive
-                    );
-
-                    if ($modified_content !== false) {
-                        $this->links_added++;
-                        break; // Move to next relevant post
-                    }
+                if ($result !== false) {
+                    $modified_content = $result;
+                    $this->links_added++;
+                    break; // Move to next target post
                 }
             }
         }
@@ -175,67 +142,29 @@ class Auto_Interlink_Injector {
     }
 
     /**
-     * Check if phrase exists in text and is not already linked
+     * Add a single link for a keyword
      */
-    private function phrase_exists_and_not_linked($text, $phrase, $case_sensitive = false) {
-        // Remove all existing links completely (so linked text won't be found)
-        $temp_text = preg_replace('/<a\s+[^>]*>.*?<\/a>/is', ' ', $text);
-
-        // Remove all HTML tags for clean searching
-        $search_text = wp_strip_all_tags($temp_text);
-
-        // Use word boundary regex to check if phrase exists in unlinked text
-        $pattern = $case_sensitive
-            ? '/\b' . preg_quote($phrase, '/') . '\b/u'
-            : '/\b' . preg_quote($phrase, '/') . '\b/iu';
-
-        return preg_match($pattern, $search_text) === 1;
-    }
-
-    /**
-     * Create HTML link
-     */
-    private function create_link($post, $anchor_text) {
-        $url = get_permalink($post->ID);
-        $title = esc_attr($post->post_title);
-        $anchor = esc_html($anchor_text);
-
-        return sprintf(
-            '<a href="%s" title="%s" class="auto-interlink">%s</a>',
-            esc_url($url),
-            $title,
-            $anchor
-        );
-    }
-
-    /**
-     * Replace first occurrence of phrase with link
-     */
-    private function replace_phrase_with_link($content, $phrase, $link, $case_sensitive = false) {
-        // Use a more sophisticated approach to avoid replacing text inside HTML tags or existing links
-
-        // First, protect existing links and HTML tags
-        $protected_content = $content;
+    private function add_single_link($content, $keyword, $target_post) {
+        // First, protect existing links
         $placeholders = array();
         $placeholder_index = 0;
 
-        // Protect existing links
         $protected_content = preg_replace_callback(
-            '/<a\s+[^>]*>.*?<\/a>/is',
+            '/<a\s[^>]*>.*?<\/a>/is',
             function($matches) use (&$placeholders, &$placeholder_index) {
-                $placeholder = '___PROTECTED_LINK_' . $placeholder_index . '___';
+                $placeholder = '___LINK_' . $placeholder_index . '___';
                 $placeholders[$placeholder] = $matches[0];
                 $placeholder_index++;
                 return $placeholder;
             },
-            $protected_content
+            $content
         );
 
-        // Protect HTML tags (but not their content)
+        // Protect all HTML tags
         $protected_content = preg_replace_callback(
             '/<[^>]+>/',
             function($matches) use (&$placeholders, &$placeholder_index) {
-                $placeholder = '___PROTECTED_TAG_' . $placeholder_index . '___';
+                $placeholder = '___TAG_' . $placeholder_index . '___';
                 $placeholders[$placeholder] = $matches[0];
                 $placeholder_index++;
                 return $placeholder;
@@ -243,25 +172,41 @@ class Auto_Interlink_Injector {
             $protected_content
         );
 
-        // Now replace the phrase
-        $pattern = $case_sensitive
-            ? '/\b(' . preg_quote($phrase, '/') . ')\b/u'
-            : '/\b(' . preg_quote($phrase, '/') . ')\b/iu';
+        // Find the keyword in protected content (case insensitive)
+        // This pattern finds the word with its original case
+        $pattern = '/\b(' . preg_quote($keyword, '/') . ')\b/iu';
 
-        // Replace only first occurrence
-        $replaced_content = preg_replace($pattern, $link, $protected_content, 1);
+        if (!preg_match($pattern, $protected_content, $matches)) {
+            return false;
+        }
+
+        // Get the original case version from the content
+        $original_word = $matches[1];
+
+        // Create the link with original case
+        $url = get_permalink($target_post->ID);
+        $link = sprintf(
+            '<a href="%s" title="%s" class="auto-interlink">%s</a>',
+            esc_url($url),
+            esc_attr($target_post->post_title),
+            esc_html($original_word)
+        );
+
+        // Replace first occurrence only
+        $replaced = preg_replace($pattern, $link, $protected_content, 1);
+
+        if ($replaced === null || $replaced === $protected_content) {
+            return false;
+        }
 
         // Restore protected content
         foreach ($placeholders as $placeholder => $original) {
-            $replaced_content = str_replace($placeholder, $original, $replaced_content);
+            $replaced = str_replace($placeholder, $original, $replaced);
         }
 
-        return $replaced_content !== null ? $replaced_content : $content;
+        return $replaced;
     }
 
-    /**
-     * Get number of links added
-     */
     public function get_links_added_count() {
         return $this->links_added;
     }
