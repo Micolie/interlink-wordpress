@@ -224,7 +224,13 @@ For issues, questions, or contributions:
 
 ## Changelog
 
-### Version 1.6.0 (Latest)
+### Version 1.6.1 (Latest)
+- **FIX**: Major performance fix - admin page now loads instantly
+- **FIX**: Removed heavy queries that ran on every page load
+- **IMPROVED**: Posts list limited to 50 and uses direct SQL for speed
+- **IMPROVED**: Simplified admin UI, removed unnecessary code bloat
+
+### Version 1.6.0
 - **NEW**: Optional AI-powered linking using OpenAI for semantic post matching
 - **NEW**: AI settings section in admin panel (enable/disable, API key input)
 - **NEW**: Semantic similarity detection - finds related posts even without keyword matches
