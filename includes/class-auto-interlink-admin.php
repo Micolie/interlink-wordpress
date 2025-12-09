@@ -202,6 +202,7 @@ class Auto_Interlink_Admin {
         $processed = 0;
         $links = 0;
         $errors = array();
+        $all_debug_logs = array();
 
         $analyzer = new Auto_Interlink_Analyzer($this->settings);
         $injector = new Auto_Interlink_Injector($this->settings, $analyzer);
@@ -211,12 +212,19 @@ class Auto_Interlink_Admin {
             $post_title = $post ? $post->post_title : "Post #$id";
 
             $result = $injector->process_post($id);
+
+            // Collect debug log for this post
+            $debug_log = $injector->get_debug_log();
+            if (!empty($debug_log)) {
+                $all_debug_logs[$post_title] = $debug_log;
+            }
+
             if ($result !== false) {
                 $processed++;
                 $links += $result;
             } else {
                 $error = $injector->get_last_error();
-                $errors[] = '<strong>' . esc_html($post_title) . '</strong>: ' . esc_html($error);
+                $errors[] = '<strong>' . esc_html($post_title) . '</strong>: ' . esc_html($error ?: 'Unknown error');
             }
         }
 
@@ -237,6 +245,23 @@ class Auto_Interlink_Admin {
 
         if ($processed === 0 && empty($errors)) {
             echo '<div class="notice notice-info"><p>No changes were made.</p></div>';
+        }
+
+        // Show debug log
+        if (!empty($all_debug_logs)) {
+            echo '<div class="notice notice-info" style="max-height:400px;overflow:auto;">';
+            echo '<p><strong>Debug Log:</strong></p>';
+            foreach ($all_debug_logs as $title => $logs) {
+                echo '<details style="margin-bottom:10px;">';
+                echo '<summary style="cursor:pointer;font-weight:bold;">' . esc_html($title) . '</summary>';
+                echo '<pre style="background:#f5f5f5;padding:10px;margin:5px 0;font-size:12px;white-space:pre-wrap;">';
+                foreach ($logs as $log) {
+                    echo esc_html($log) . "\n";
+                }
+                echo '</pre>';
+                echo '</details>';
+            }
+            echo '</div>';
         }
     }
 }
