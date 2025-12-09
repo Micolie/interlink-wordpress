@@ -190,14 +190,13 @@ class Auto_Interlink_Analyzer {
     }
 
     /**
-     * Find phrases (2-7 words) from title that exist in content
-     * Minimum 2 words for better SEO value
+     * Find phrases (2-7 words preferred, single words as fallback) from title that exist in content
+     * Prefers 2+ words for better SEO value, but falls back to single words if no phrases found
      */
     private function find_linkable_words($title, $content) {
         $title_lower = strtolower(wp_strip_all_tags($title));
         $stop_words = $this->get_stop_words();
         $max_phrase_words = $this->settings->get('max_phrase_words', 7);
-        $min_phrase_words = 2; // Minimum 2 words for better SEO
 
         // Extract all words from title
         preg_match_all('/[a-zA-Z]+/u', $title_lower, $matches);
@@ -211,23 +210,37 @@ class Auto_Interlink_Analyzer {
             }
         }
 
-        // Need at least 2 words to make phrases
-        if (count($filtered_words) < $min_phrase_words) {
+        // Need at least 1 word
+        if (count($filtered_words) < 1) {
             return array();
         }
 
         $linkable = array();
 
-        // Generate phrases from longest to shortest (2 to max_phrase_words)
-        for ($length = min($max_phrase_words, count($filtered_words)); $length >= $min_phrase_words; $length--) {
-            for ($i = 0; $i <= count($filtered_words) - $length; $i++) {
-                $phrase = implode(' ', array_slice($filtered_words, $i, $length));
+        // First try multi-word phrases (2+ words) - preferred for SEO
+        if (count($filtered_words) >= 2) {
+            for ($length = min($max_phrase_words, count($filtered_words)); $length >= 2; $length--) {
+                for ($i = 0; $i <= count($filtered_words) - $length; $i++) {
+                    $phrase = implode(' ', array_slice($filtered_words, $i, $length));
 
-                // Check if phrase exists in content
-                $pattern = '/\b' . preg_quote($phrase, '/') . '\b/i';
-                if (preg_match($pattern, $content)) {
-                    // Weight by number of words (longer = better for SEO)
-                    $linkable[$phrase] = $length * 20;
+                    // Check if phrase exists in content
+                    $pattern = '/\b' . preg_quote($phrase, '/') . '\b/i';
+                    if (preg_match($pattern, $content)) {
+                        // Weight by number of words (longer = better for SEO)
+                        $linkable[$phrase] = $length * 20;
+                    }
+                }
+            }
+        }
+
+        // If no multi-word phrases found, fall back to single words (4+ chars for quality)
+        if (empty($linkable)) {
+            foreach ($filtered_words as $word) {
+                if (strlen($word) >= 4) { // Require 4+ chars for single words
+                    $pattern = '/\b' . preg_quote($word, '/') . '\b/i';
+                    if (preg_match($pattern, $content)) {
+                        $linkable[$word] = 10; // Lower weight for single words
+                    }
                 }
             }
         }
