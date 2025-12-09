@@ -14,10 +14,19 @@ class Auto_Interlink_Injector {
     private $links_added = 0;
     private $last_error = '';
     private $processing_details = array();
+    private $debug_log = array();
 
     public function __construct($settings, $analyzer) {
         $this->settings = $settings;
         $this->analyzer = $analyzer;
+    }
+
+    private function log_debug($message) {
+        $this->debug_log[] = $message;
+    }
+
+    public function get_debug_log() {
+        return $this->debug_log;
     }
 
     /**
@@ -26,13 +35,20 @@ class Auto_Interlink_Injector {
     public function process_post($post_id) {
         $this->last_error = '';
         $this->processing_details = array();
+        $this->debug_log = array();
 
-        if (!$this->settings->is_enabled()) {
+        $this->log_debug("=== Starting process_post for ID: $post_id ===");
+
+        // Check if enabled
+        $is_enabled = $this->settings->is_enabled();
+        $this->log_debug("Plugin enabled: " . ($is_enabled ? 'YES' : 'NO'));
+        if (!$is_enabled) {
             $this->last_error = 'Plugin is disabled in settings';
             return false;
         }
 
         $post = get_post($post_id);
+        $this->log_debug("Post found: " . ($post ? 'YES - "' . $post->post_title . '"' : 'NO'));
         if (!$post) {
             $this->last_error = 'Post not found (ID: ' . $post_id . ')';
             return false;
@@ -40,6 +56,8 @@ class Auto_Interlink_Injector {
 
         // Check if this post type is enabled
         $enabled_post_types = $this->settings->get('post_types', array('post'));
+        $this->log_debug("Post type: " . $post->post_type);
+        $this->log_debug("Enabled post types: " . implode(', ', $enabled_post_types));
         if (!in_array($post->post_type, $enabled_post_types)) {
             $this->last_error = 'Post type "' . $post->post_type . '" is not enabled in settings';
             return false;
@@ -47,6 +65,7 @@ class Auto_Interlink_Injector {
 
         // Check if this post is excluded
         $exclude_posts = $this->settings->get('exclude_posts', array());
+        $this->log_debug("Excluded post IDs: " . (empty($exclude_posts) ? 'none' : implode(', ', $exclude_posts)));
         if (in_array($post->ID, $exclude_posts)) {
             $this->last_error = 'Post is in the exclusion list';
             return false;
@@ -56,13 +75,16 @@ class Auto_Interlink_Injector {
         $min_length = $this->settings->get('min_post_length', 100);
         $content = $post->post_content;
         $content_length = str_word_count(wp_strip_all_tags($content));
+        $this->log_debug("Content length: $content_length words (minimum: $min_length)");
         if ($content_length < $min_length) {
             $this->last_error = 'Post too short (' . $content_length . ' words, minimum: ' . $min_length . ')';
             return false;
         }
 
         // Check if content already has auto-interlinks (to avoid re-processing)
-        if (strpos($content, 'class="auto-interlink"') !== false) {
+        $has_links = strpos($content, 'class="auto-interlink"') !== false;
+        $this->log_debug("Already has auto-interlinks: " . ($has_links ? 'YES' : 'NO'));
+        if ($has_links) {
             $this->last_error = 'Post already has auto-interlinks';
             return false;
         }
@@ -71,27 +93,47 @@ class Auto_Interlink_Injector {
 
         // Get relevant posts
         $max_links = $this->settings->get('max_links_per_post', 5);
+        $this->log_debug("Max links per post: $max_links");
+        $this->log_debug("Calling analyzer->get_relevant_posts()...");
+
         $relevant_posts = $this->analyzer->get_relevant_posts($post->ID, $max_links);
+
+        $this->log_debug("Relevant posts found: " . count($relevant_posts));
 
         if (empty($relevant_posts)) {
             $this->last_error = 'No relevant posts found (no matching keywords from other post titles found in this content)';
             return false;
         }
 
+        // Log details about relevant posts
+        foreach ($relevant_posts as $i => $rp) {
+            $title = isset($rp['post']) ? $rp['post']->post_title : 'unknown';
+            $keywords = isset($rp['keywords']) ? array_keys($rp['keywords']) : array();
+            $this->log_debug("  Relevant post #$i: \"$title\" - Keywords: " . implode(', ', $keywords));
+        }
+
         $this->processing_details['relevant_posts_found'] = count($relevant_posts);
 
         // Process content and add links
+        $this->log_debug("Calling add_links_to_content()...");
         $modified_content = $this->add_links_to_content($content, $relevant_posts);
+
+        $this->log_debug("Links added: " . $this->links_added);
+        $this->log_debug("Content modified: " . ($modified_content !== $content ? 'YES' : 'NO'));
 
         // Only update if content was modified
         if ($modified_content !== $content && $this->links_added > 0) {
+            $this->log_debug("Updating post in database...");
+
             // Remove hook with same priority it was registered (priority 20)
             remove_action('save_post', array($this, 'process_post_on_save'), 20);
 
-            wp_update_post(array(
+            $update_result = wp_update_post(array(
                 'ID' => $post_id,
                 'post_content' => $modified_content
             ));
+
+            $this->log_debug("wp_update_post result: " . ($update_result ? "success (ID: $update_result)" : "FAILED"));
 
             // Re-add hook with same priority it was registered (priority 20)
             add_action('save_post', array($this, 'process_post_on_save'), 20, 1);
@@ -105,6 +147,8 @@ class Auto_Interlink_Injector {
         } elseif (empty($this->last_error)) {
             $this->last_error = 'No links were added (content unchanged)';
         }
+
+        $this->log_debug("Final error: " . $this->last_error);
 
         return false;
     }
