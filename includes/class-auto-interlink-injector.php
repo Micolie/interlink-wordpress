@@ -85,16 +85,25 @@ class Auto_Interlink_Injector {
 
         // Only update if content was modified
         if ($modified_content !== $content && $this->links_added > 0) {
-            remove_action('save_post', array($this, 'process_post_on_save'));
+            // Remove hook with same priority it was registered (priority 20)
+            remove_action('save_post', array($this, 'process_post_on_save'), 20);
 
             wp_update_post(array(
                 'ID' => $post_id,
                 'post_content' => $modified_content
             ));
 
-            add_action('save_post', array($this, 'process_post_on_save'), 10, 1);
+            // Re-add hook with same priority it was registered (priority 20)
+            add_action('save_post', array($this, 'process_post_on_save'), 20, 1);
 
             return $this->links_added;
+        }
+
+        // Set error message if relevant posts were found but no links could be added
+        if (!empty($relevant_posts) && $this->links_added === 0) {
+            $this->last_error = 'Found ' . count($relevant_posts) . ' relevant posts but could not match any keywords in content (keywords may not appear as standalone words)';
+        } elseif (empty($this->last_error)) {
+            $this->last_error = 'No links were added (content unchanged)';
         }
 
         return false;
