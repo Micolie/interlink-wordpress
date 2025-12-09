@@ -169,13 +169,15 @@ class Auto_Interlink_Injector {
      */
     private function add_single_link($content, $keyword, $target_post) {
         // First, protect existing links
+        // IMPORTANT: Use non-word characters in placeholders so \b word boundaries still work
+        // Underscores are word characters in regex, so we use # instead
         $placeholders = array();
         $placeholder_index = 0;
 
         $protected_content = preg_replace_callback(
             '/<a\s[^>]*>.*?<\/a>/is',
             function($matches) use (&$placeholders, &$placeholder_index) {
-                $placeholder = '___LINK_' . $placeholder_index . '___';
+                $placeholder = '###LINK' . $placeholder_index . '###';
                 $placeholders[$placeholder] = $matches[0];
                 $placeholder_index++;
                 return $placeholder;
@@ -187,7 +189,7 @@ class Auto_Interlink_Injector {
         $protected_content = preg_replace_callback(
             '/<[^>]+>/',
             function($matches) use (&$placeholders, &$placeholder_index) {
-                $placeholder = '___TAG_' . $placeholder_index . '___';
+                $placeholder = '###TAG' . $placeholder_index . '###';
                 $placeholders[$placeholder] = $matches[0];
                 $placeholder_index++;
                 return $placeholder;
