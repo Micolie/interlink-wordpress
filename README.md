@@ -224,7 +224,13 @@ For issues, questions, or contributions:
 
 ## Changelog
 
-### Version 1.6.1 (Latest)
+### Version 1.7.0 (Latest)
+- **NEW**: Detailed error reporting - shows exactly why links weren't added to each post
+- **FIX**: Improved keyword matching - now falls back to single words when no multi-word phrases found
+- **IMPROVED**: Error messages include specific reasons (post too short, no relevant posts, already has links, etc.)
+- **IMPROVED**: Admin UI shows success and failure details separately
+
+### Version 1.6.1
 - **FIX**: Major performance fix - admin page now loads instantly
 - **FIX**: Removed heavy queries that ran on every page load
 - **IMPROVED**: Posts list limited to 50 and uses direct SQL for speed

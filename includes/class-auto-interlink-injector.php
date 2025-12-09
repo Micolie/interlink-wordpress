@@ -12,6 +12,8 @@ class Auto_Interlink_Injector {
     private $settings;
     private $analyzer;
     private $links_added = 0;
+    private $last_error = '';
+    private $processing_details = array();
 
     public function __construct($settings, $analyzer) {
         $this->settings = $settings;
@@ -22,24 +24,31 @@ class Auto_Interlink_Injector {
      * Process a post and add interlinks directly to database
      */
     public function process_post($post_id) {
+        $this->last_error = '';
+        $this->processing_details = array();
+
         if (!$this->settings->is_enabled()) {
+            $this->last_error = 'Plugin is disabled in settings';
             return false;
         }
 
         $post = get_post($post_id);
         if (!$post) {
+            $this->last_error = 'Post not found (ID: ' . $post_id . ')';
             return false;
         }
 
         // Check if this post type is enabled
         $enabled_post_types = $this->settings->get('post_types', array('post'));
         if (!in_array($post->post_type, $enabled_post_types)) {
+            $this->last_error = 'Post type "' . $post->post_type . '" is not enabled in settings';
             return false;
         }
 
         // Check if this post is excluded
         $exclude_posts = $this->settings->get('exclude_posts', array());
         if (in_array($post->ID, $exclude_posts)) {
+            $this->last_error = 'Post is in the exclusion list';
             return false;
         }
 
@@ -48,11 +57,13 @@ class Auto_Interlink_Injector {
         $content = $post->post_content;
         $content_length = str_word_count(wp_strip_all_tags($content));
         if ($content_length < $min_length) {
+            $this->last_error = 'Post too short (' . $content_length . ' words, minimum: ' . $min_length . ')';
             return false;
         }
 
         // Check if content already has auto-interlinks (to avoid re-processing)
         if (strpos($content, 'class="auto-interlink"') !== false) {
+            $this->last_error = 'Post already has auto-interlinks';
             return false;
         }
 
@@ -63,8 +74,11 @@ class Auto_Interlink_Injector {
         $relevant_posts = $this->analyzer->get_relevant_posts($post->ID, $max_links);
 
         if (empty($relevant_posts)) {
+            $this->last_error = 'No relevant posts found (no matching keywords from other post titles found in this content)';
             return false;
         }
+
+        $this->processing_details['relevant_posts_found'] = count($relevant_posts);
 
         // Process content and add links
         $modified_content = $this->add_links_to_content($content, $relevant_posts);
@@ -209,5 +223,13 @@ class Auto_Interlink_Injector {
 
     public function get_links_added_count() {
         return $this->links_added;
+    }
+
+    public function get_last_error() {
+        return $this->last_error;
+    }
+
+    public function get_processing_details() {
+        return $this->processing_details;
     }
 }

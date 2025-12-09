@@ -201,18 +201,42 @@ class Auto_Interlink_Admin {
         $ids = array_map('absint', $_POST['selected_posts']);
         $processed = 0;
         $links = 0;
+        $errors = array();
 
         $analyzer = new Auto_Interlink_Analyzer($this->settings);
         $injector = new Auto_Interlink_Injector($this->settings, $analyzer);
 
         foreach ($ids as $id) {
+            $post = get_post($id);
+            $post_title = $post ? $post->post_title : "Post #$id";
+
             $result = $injector->process_post($id);
             if ($result !== false) {
                 $processed++;
                 $links += $result;
+            } else {
+                $error = $injector->get_last_error();
+                $errors[] = '<strong>' . esc_html($post_title) . '</strong>: ' . esc_html($error);
             }
         }
 
-        echo '<div class="notice notice-success"><p>Added ' . $links . ' links to ' . $processed . ' posts.</p></div>';
+        if ($processed > 0) {
+            echo '<div class="notice notice-success"><p>✓ Added ' . $links . ' links to ' . $processed . ' post(s).</p></div>';
+        }
+
+        if (!empty($errors)) {
+            echo '<div class="notice notice-warning">';
+            echo '<p><strong>Could not add links to ' . count($errors) . ' post(s):</strong></p>';
+            echo '<ul style="margin-left:20px;list-style:disc;">';
+            foreach ($errors as $error) {
+                echo '<li>' . $error . '</li>';
+            }
+            echo '</ul>';
+            echo '</div>';
+        }
+
+        if ($processed === 0 && empty($errors)) {
+            echo '<div class="notice notice-info"><p>No changes were made.</p></div>';
+        }
     }
 }
