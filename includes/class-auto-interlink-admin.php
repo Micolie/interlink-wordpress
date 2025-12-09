@@ -144,7 +144,7 @@ class Auto_Interlink_Admin {
 
             <hr>
             <h2>Process Posts Without Links</h2>
-            <?php $posts = $this->get_posts_without_links(50); ?>
+            <?php $posts = $this->get_posts_without_links(25); ?>
             <?php if (!empty($posts)) : ?>
             <form method="post">
                 <?php wp_nonce_field('auto_interlink_process_selected'); ?>
@@ -161,7 +161,7 @@ class Auto_Interlink_Admin {
                     <?php endforeach; ?>
                     </tbody>
                 </table>
-                <p><strong>Showing up to 50 posts.</strong></p>
+                <p><strong>Showing up to 25 posts.</strong></p>
                 <p>
                     <label><input type="radio" name="processing_mode" value="fast" checked> <strong>Fast Mode</strong> (keyword matching - recommended)</label><br>
                     <label><input type="radio" name="processing_mode" value="ai" <?php echo empty($settings['enable_ai']) ? 'disabled' : ''; ?>> <strong>AI Mode</strong> (slower, uses OpenAI - may timeout)<?php echo empty($settings['enable_ai']) ? ' <em>(enable AI above first)</em>' : ''; ?></label>
@@ -176,7 +176,7 @@ class Auto_Interlink_Admin {
         <?php
     }
 
-    private function get_posts_without_links($limit = 50) {
+    private function get_posts_without_links($limit = 25) {
         global $wpdb;
         $post_types = $this->settings->get('post_types', array('post'));
         $types_sql = "'" . implode("','", array_map('esc_sql', $post_types)) . "'";
