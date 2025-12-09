@@ -36,8 +36,11 @@ class Auto_Interlink_Analyzer {
     /**
      * Get relevant posts for a given post
      * Uses AI if enabled, otherwise falls back to keyword matching
+     * @param int $post_id The post ID to find links for
+     * @param int|null $limit Max number of results
+     * @param bool $skip_ai Force skip AI even if enabled (for faster processing)
      */
-    public function get_relevant_posts($post_id, $limit = null) {
+    public function get_relevant_posts($post_id, $limit = null, $skip_ai = false) {
         if (!$limit) {
             $limit = $this->settings->get('max_links_per_post', 5);
         }
@@ -58,8 +61,8 @@ class Auto_Interlink_Analyzer {
         // Get all potential target posts
         $potential_posts = $this->get_potential_target_posts($post_id);
 
-        // Use AI or keyword matching based on settings
-        if ($this->is_ai_enabled()) {
+        // Use AI or keyword matching based on settings (skip_ai forces keyword mode)
+        if ($this->is_ai_enabled() && !$skip_ai) {
             $scored_posts = $this->get_relevant_posts_ai($post_id, $current_post, $potential_posts, $limit);
         } else {
             $scored_posts = $this->get_relevant_posts_keywords($post_id, $current_post, $potential_posts);
