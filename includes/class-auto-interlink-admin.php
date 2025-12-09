@@ -162,7 +162,7 @@ class Auto_Interlink_Admin {
                     </tbody>
                 </table>
                 <p><strong>Showing up to 50 posts.</strong></p>
-                <?php submit_button('Process Selected', 'primary', 'submit', false); ?>
+                <?php submit_button('Process Selected', 'primary', 'process_selected_posts', false); ?>
             </form>
             <script>document.getElementById('select-all').onchange=function(){document.querySelectorAll('input[name="selected_posts[]"]').forEach(c=>c.checked=this.checked)};</script>
             <?php else : ?>
