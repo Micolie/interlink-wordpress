@@ -159,6 +159,7 @@ class Auto_Interlink_OpenAI {
 
     /**
      * Get suggested anchor text for linking between two posts
+     * Uses AI to find contextual matches including synonyms and related concepts
      */
     public function get_anchor_suggestions($source_post_id, $target_post_id) {
         if (!$this->is_configured()) {
@@ -174,8 +175,14 @@ class Auto_Interlink_OpenAI {
 
         $source_content = wp_strip_all_tags($source->post_content);
         $target_title = $target->post_title;
+        $target_url = get_permalink($target->ID);
+        $target_slug = $target->post_name;
+        $target_excerpt = wp_strip_all_tags($target->post_excerpt ?: wp_trim_words($target->post_content, 50, ''));
 
-        // Ask GPT to find the best anchor text
+        // Build context about the target post from URL and content
+        $target_context = $this->build_target_context($target_title, $target_slug, $target_excerpt);
+
+        // Ask GPT to find contextually relevant anchor text
         $response = wp_remote_post('https://api.openai.com/v1/chat/completions', array(
             'timeout' => 30,
             'headers' => array(
@@ -187,15 +194,27 @@ class Auto_Interlink_OpenAI {
                 'messages' => array(
                     array(
                         'role' => 'system',
-                        'content' => 'You find anchor text phrases for internal linking. Given source content and a target post title, find 2-5 word phrases from the source content that would make good anchor text to link to the target post. Return only the phrases, one per line, no explanations. Only return phrases that EXACTLY exist in the source content.'
+                        'content' => 'You are an SEO expert finding anchor text for internal links. Your task is to find phrases in the SOURCE CONTENT that would make natural, contextually relevant links to the TARGET POST.
+
+IMPORTANT RULES:
+1. The anchor text MUST be an EXACT phrase that exists verbatim in the source content
+2. Look for CONTEXTUAL MATCHES - phrases that relate to the target topic through:
+   - Synonyms (e.g., "automobile" can link to a post about "cars")
+   - Related concepts (e.g., "search rankings" can link to "SEO tips")
+   - Broader/narrower terms (e.g., "marketing strategy" can link to "content marketing")
+   - Action phrases (e.g., "optimize your website" can link to "website optimization guide")
+3. Prefer 2-5 word phrases for natural anchor text
+4. The phrase must read naturally as a hyperlink in context
+
+Return ONLY the exact phrases from the source content, one per line, no explanations or formatting.'
                     ),
                     array(
                         'role' => 'user',
-                        'content' => "Source content:\n" . substr($source_content, 0, 3000) . "\n\nTarget post title: " . $target_title . "\n\nFind 3-5 anchor text phrases from the source that could link to this target:"
+                        'content' => "=== SOURCE CONTENT (find anchor phrases here) ===\n" . substr($source_content, 0, 4000) . "\n\n=== TARGET POST CONTEXT ===\nTitle: " . $target_title . "\nURL slug: " . $target_slug . "\nSummary: " . $target_context . "\n\nFind 3-6 phrases from the source content that would make good contextual anchor text to link to this target post. Remember: phrases must EXACTLY exist in the source content above."
                     ),
                 ),
-                'max_tokens' => 200,
-                'temperature' => 0.3,
+                'max_tokens' => 300,
+                'temperature' => 0.4,
             )),
         ));
 
@@ -213,18 +232,55 @@ class Auto_Interlink_OpenAI {
             array_map('trim', explode("\n", $body['choices'][0]['message']['content']))
         );
 
-        // Verify each suggestion actually exists in content
+        // Verify each suggestion actually exists in content with word boundary matching
         $verified = array();
-        $content_lower = strtolower($source_content);
 
         foreach ($suggestions as $suggestion) {
-            $suggestion_clean = trim($suggestion, '- "\'');
-            if (stripos($content_lower, strtolower($suggestion_clean)) !== false) {
-                $verified[$suggestion_clean] = strlen($suggestion_clean);
+            $suggestion_clean = trim($suggestion, '- "\'*•0123456789.');
+            $suggestion_clean = trim($suggestion_clean);
+
+            if (empty($suggestion_clean) || strlen($suggestion_clean) < 3) {
+                continue;
+            }
+
+            // Use word boundary regex to verify exact phrase exists
+            $pattern = '/\b' . preg_quote($suggestion_clean, '/') . '\b/iu';
+            if (preg_match($pattern, $source_content)) {
+                // Weight by phrase length (longer = better for SEO, but cap it)
+                $word_count = str_word_count($suggestion_clean);
+                $weight = min($word_count * 15, 75); // Cap at 5 words worth
+                $verified[$suggestion_clean] = $weight;
             }
         }
 
+        // Sort by weight (higher = better)
+        arsort($verified);
+
         return $verified;
+    }
+
+    /**
+     * Build context string from target post information
+     */
+    private function build_target_context($title, $slug, $excerpt) {
+        // Extract meaningful words from slug (replace hyphens with spaces)
+        $slug_words = str_replace(array('-', '_'), ' ', $slug);
+
+        // Combine into a context string
+        $context_parts = array();
+
+        if (!empty($excerpt)) {
+            $context_parts[] = $excerpt;
+        }
+
+        // Add slug context if it provides different info than title
+        $slug_lower = strtolower($slug_words);
+        $title_lower = strtolower($title);
+        if (similar_text($slug_lower, $title_lower) / max(strlen($slug_lower), strlen($title_lower)) < 0.7) {
+            $context_parts[] = "URL keywords: " . $slug_words;
+        }
+
+        return implode('. ', $context_parts);
     }
 
     /**

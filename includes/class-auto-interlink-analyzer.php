@@ -190,16 +190,16 @@ class Auto_Interlink_Analyzer {
     }
 
     /**
-     * Find phrases (2-7 words preferred, single words as fallback) from title that exist in content
-     * Prefers 2+ words for better SEO value, but falls back to single words if no phrases found
+     * Find phrases and words from title that exist in content
+     * Includes both multi-word phrases (preferred for SEO) and single words
      */
     private function find_linkable_words($title, $content) {
         $title_lower = strtolower(wp_strip_all_tags($title));
         $stop_words = $this->get_stop_words();
         $max_phrase_words = $this->settings->get('max_phrase_words', 7);
 
-        // Extract all words from title
-        preg_match_all('/[a-zA-Z]+/u', $title_lower, $matches);
+        // Extract all words from title (including unicode letters and numbers)
+        preg_match_all('/[\p{L}\p{N}]+/u', $title_lower, $matches);
         $all_words = $matches[0];
 
         // Filter out stop words to get meaningful words
@@ -217,7 +217,7 @@ class Auto_Interlink_Analyzer {
 
         $linkable = array();
 
-        // First try multi-word phrases (2+ words) - preferred for SEO
+        // Try multi-word phrases (2+ words) - preferred for SEO
         if (count($filtered_words) >= 2) {
             for ($length = min($max_phrase_words, count($filtered_words)); $length >= 2; $length--) {
                 for ($i = 0; $i <= count($filtered_words) - $length; $i++) {
@@ -233,14 +233,21 @@ class Auto_Interlink_Analyzer {
             }
         }
 
-        // If no multi-word phrases found, fall back to single words (4+ chars for quality)
-        if (empty($linkable)) {
-            foreach ($filtered_words as $word) {
-                if (strlen($word) >= 4) { // Require 4+ chars for single words
-                    $pattern = '/\b' . preg_quote($word, '/') . '\b/i';
-                    if (preg_match($pattern, $content)) {
-                        $linkable[$word] = 10; // Lower weight for single words
-                    }
+        // ALWAYS also try single words (not just as fallback) - they're more likely to match
+        foreach ($filtered_words as $word) {
+            // Skip if this word is already part of a matched phrase
+            $already_in_phrase = false;
+            foreach (array_keys($linkable) as $phrase) {
+                if (strpos($phrase, $word) !== false && strpos($phrase, ' ') !== false) {
+                    $already_in_phrase = true;
+                    break;
+                }
+            }
+
+            if (!$already_in_phrase && strlen($word) >= 4) { // Require 4+ chars for single words
+                $pattern = '/\b' . preg_quote($word, '/') . '\b/i';
+                if (preg_match($pattern, $content)) {
+                    $linkable[$word] = 10; // Lower weight for single words
                 }
             }
         }
