@@ -31,13 +31,15 @@ class Auto_Interlink_Injector {
 
     /**
      * Process a post and add interlinks directly to database
+     * @param int $post_id The post ID to process
+     * @param bool $skip_ai Skip AI processing for faster results (default: false)
      */
-    public function process_post($post_id) {
+    public function process_post($post_id, $skip_ai = false) {
         $this->last_error = '';
         $this->processing_details = array();
         $this->debug_log = array();
 
-        $this->log_debug("=== Starting process_post for ID: $post_id ===");
+        $this->log_debug("=== Starting process_post for ID: $post_id (skip_ai: " . ($skip_ai ? 'YES' : 'NO') . ") ===");
 
         // Check if enabled
         $is_enabled = $this->settings->is_enabled();
@@ -96,7 +98,7 @@ class Auto_Interlink_Injector {
         $this->log_debug("Max links per post: $max_links");
         $this->log_debug("Calling analyzer->get_relevant_posts()...");
 
-        $relevant_posts = $this->analyzer->get_relevant_posts($post->ID, $max_links);
+        $relevant_posts = $this->analyzer->get_relevant_posts($post->ID, $max_links, $skip_ai);
 
         $this->log_debug("Relevant posts found: " . count($relevant_posts));
 
@@ -154,7 +156,7 @@ class Auto_Interlink_Injector {
     }
 
     /**
-     * Process post on save
+     * Process post on save - always skips AI to avoid slow page loads
      */
     public function process_post_on_save($post_id) {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
@@ -165,7 +167,9 @@ class Auto_Interlink_Injector {
             return;
         }
 
-        $this->process_post($post_id);
+        // Always skip AI on automatic save to prevent slow page loads
+        // AI is only used when manually processing from admin panel
+        $this->process_post($post_id, true);
     }
 
     /**

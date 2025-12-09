@@ -162,6 +162,10 @@ class Auto_Interlink_Admin {
                     </tbody>
                 </table>
                 <p><strong>Showing up to 50 posts.</strong></p>
+                <p>
+                    <label><input type="radio" name="processing_mode" value="fast" checked> <strong>Fast Mode</strong> (keyword matching - recommended)</label><br>
+                    <label><input type="radio" name="processing_mode" value="ai" <?php echo empty($settings['enable_ai']) ? 'disabled' : ''; ?>> <strong>AI Mode</strong> (slower, uses OpenAI - may timeout)<?php echo empty($settings['enable_ai']) ? ' <em>(enable AI above first)</em>' : ''; ?></label>
+                </p>
                 <?php submit_button('Process Selected', 'primary', 'process_selected_posts', false); ?>
             </form>
             <script>document.getElementById('select-all').onchange=function(){document.querySelectorAll('input[name="selected_posts[]"]').forEach(c=>c.checked=this.checked)};</script>
@@ -204,14 +208,21 @@ class Auto_Interlink_Admin {
         $errors = array();
         $all_debug_logs = array();
 
+        // Check processing mode - default to fast (skip AI)
+        $processing_mode = isset($_POST['processing_mode']) ? sanitize_text_field($_POST['processing_mode']) : 'fast';
+        $skip_ai = ($processing_mode !== 'ai');
+
         $analyzer = new Auto_Interlink_Analyzer($this->settings);
         $injector = new Auto_Interlink_Injector($this->settings, $analyzer);
+
+        $mode_label = $skip_ai ? 'Fast Mode (keywords)' : 'AI Mode';
+        echo '<div class="notice notice-info"><p>Processing with: <strong>' . esc_html($mode_label) . '</strong></p></div>';
 
         foreach ($ids as $id) {
             $post = get_post($id);
             $post_title = $post ? $post->post_title : "Post #$id";
 
-            $result = $injector->process_post($id);
+            $result = $injector->process_post($id, $skip_ai);
 
             // Collect debug log for this post
             $debug_log = $injector->get_debug_log();

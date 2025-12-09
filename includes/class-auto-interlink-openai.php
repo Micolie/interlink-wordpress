@@ -276,7 +276,8 @@ Return ONLY the exact phrases from the source content, one per line, no explanat
         // Add slug context if it provides different info than title
         $slug_lower = strtolower($slug_words);
         $title_lower = strtolower($title);
-        if (similar_text($slug_lower, $title_lower) / max(strlen($slug_lower), strlen($title_lower)) < 0.7) {
+        $max_len = max(strlen($slug_lower), strlen($title_lower));
+        if ($max_len > 0 && similar_text($slug_lower, $title_lower) / $max_len < 0.7) {
             $context_parts[] = "URL keywords: " . $slug_words;
         }
 
